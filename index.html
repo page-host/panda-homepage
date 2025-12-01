@@ -495,7 +495,7 @@ async function pullFromGitHubSession(showErrors = false){
   }
 }
 
-/* Push helper (stores sha, broadcasts update, pulls after push) */
+/* tryPushToGitHub: ensure sha present before updating (fixes 422 "sha wasn't supplied") */
 async function tryPushToGitHub(eventsObj){
   const token = getSessionToken();
   if(!token){
@@ -504,14 +504,42 @@ async function tryPushToGitHub(eventsObj){
   }
   githubStatus.textContent = 'GitHub: syncing...';
   try{
-    const currentSha = localStorage.getItem('gh_sha') || null;
+    // Ensure we have the latest sha before pushing
+    let currentSha = localStorage.getItem('gh_sha') || null;
+
+    // If we don't have a sha, try to fetch it from the Contents API (authenticated)
+    if(!currentSha){
+      try {
+        const metaUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(GITHUB_PATH)}`;
+        const metaRes = await fetch(metaUrl, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }, cache: 'no-cache' });
+        if(metaRes.ok){
+          const metaJson = await metaRes.json();
+          if(metaJson && metaJson.sha){
+            currentSha = metaJson.sha;
+            localStorage.setItem('gh_sha', currentSha);
+          }
+        } else if(metaRes.status === 404){
+          // file doesn't exist yet — that's fine, we'll create it (no sha required)
+          currentSha = null;
+        } else {
+          console.warn('Could not fetch file metadata before push', metaRes.status);
+        }
+      } catch (metaErr) {
+        console.warn('Error fetching file metadata before push', metaErr);
+      }
+    }
+
+    // Now call pushEventsToGitHub with the (possibly null) currentSha
     const res = await pushEventsToGitHub(token, eventsObj, currentSha);
+
     if(res && res.content && res.content.sha){
       localStorage.setItem('gh_sha', res.content.sha);
       localStorage.setItem('events_last_push', new Date().toISOString());
       console.log('GitHub push response', res);
     }
     githubStatus.textContent = 'GitHub: last sync ' + new Date().toLocaleString();
+
+    // Refresh local copy from remote (public-first)
     try {
       await pullFromGitHubSession(false);
     } catch(e) {
