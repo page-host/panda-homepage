@@ -5,78 +5,63 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>4AM Event</title>
 <link rel="icon" href="assets/cal.png">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
-/* Responsive, professional styles */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+/* Minimal responsive styles, keep date boxes intact and scrollable on small screens */
 :root{
   --bg:#f6f8fb; --card:#fff; --muted:#6b7280;
-  --accent-1:#4f46e5; --accent-2:#06b6d4; --accent-grad: linear-gradient(135deg,var(--accent-1),var(--accent-2));
-  --shadow: 0 8px 30px rgba(15,23,42,0.08); --danger:#ef4444;
+  --accent-1:#4f46e5; --accent-2:#06b6d4;
+  --accent-grad: linear-gradient(135deg,var(--accent-1),var(--accent-2));
+  --shadow: 0 8px 30px rgba(15,23,42,0.08);
 }
 *{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#0f172a;-webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;padding-bottom:40px;
-}
-
-/* Header */
-header{
-  display:flex;align-items:center;justify-content:space-between;padding:14px;max-width:1100px;margin:18px auto;
-  background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;box-shadow:var(--shadow);
-}
+body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#0f172a;padding-bottom:40px}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px;max-width:1100px;margin:18px auto;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;box-shadow:var(--shadow)}
 .title{display:flex;gap:12px;align-items:center}
 .logo{width:44px;height:44px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
-.controls{display:flex;gap:8px;align-items:center}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 button{border:0;background:transparent;padding:8px 10px;border-radius:10px;cursor:pointer}
-.btn{background:var(--card);border:1px solid #eef2ff;padding:8px 12px;border-radius:10px;color:var(--accent-1)}
+.btn{background:var(--card);border:1px solid #eef2ff;padding:8px 12px;border-radius:10px;color:#0f172a}
 .btn-primary{background:var(--accent-grad);color:#fff;padding:8px 12px;border-radius:10px}
 .small{font-size:13px;color:var(--muted)}
 
-/* Calendar */
-#calendar{max-width:1100px;margin:18px auto;padding:12px;display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
+/* Calendar wrapper: horizontal scroll on small screens while keeping 7 columns */
+.calendar-wrap{max-width:1100px;margin:18px auto;padding:0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.calendar-inner{min-width:980px}
+
+/* Calendar grid */
+#calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
 .weekday{font-size:12px;color:var(--muted);text-align:center}
 .day{background:linear-gradient(180deg,#fff,#fbfdff);min-height:110px;padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,0.04)}
 .day.empty{background:transparent;cursor:default;box-shadow:none}
 .date{font-weight:700}
-.events{margin-top:auto;display:flex;flex-direction:column;gap:8px}
-.eventDot{display:inline-block;padding:6px 8px;border-radius:10px;color:#fff;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));font-size:12px}
+.events{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+.eventDot{display:inline-block;padding:6px 8px;border-radius:10px;color:#fff;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 
-/* Admin side panel */
+/* Panel */
 .panel{position:fixed;right:20px;top:110px;width:360px;background:linear-gradient(180deg,#fff,#fbfdff);padding:14px;border-radius:16px;box-shadow:0 20px 60px rgba(2,6,23,0.12);display:none;z-index:40}
 .panel.show{display:block}
 .form-row{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 input[type="text"],textarea,input[type="password"]{width:100%;padding:10px;border-radius:10px;border:1px solid #eef2ff}
 textarea{min-height:90px;resize:vertical}
 
-/* Modal backdrop and container */
-.modal-backdrop{position:fixed;inset:0;background:linear-gradient(180deg, rgba(2,6,23,0.45), rgba(2,6,23,0.35));display:none;align-items:center;justify-content:center;z-index:60;}
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center;z-index:60}
 .modal-backdrop.show{display:flex}
-.modal{width:92%;max-width:520px;border-radius:16px;padding:18px;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:0 30px 80px rgba(2,6,23,0.28);border:1px solid rgba(255,255,255,0.6);display:flex;flex-direction:column;gap:12px}
-
-/* Token login layout */
-.token-grid{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
-.token-grid .note{grid-column:1 / -1;color:var(--muted);font-size:13px}
-.token-actions{display:flex;gap:8px;justify-content:flex-end}
-.token-actions .btn{min-width:88px}
-@media (max-width:520px){
-  .modal{padding:14px;border-radius:12px}
-  .token-grid{grid-template-columns:1fr;gap:10px}
-  .token-actions{flex-direction:column-reverse;align-items:stretch}
-  .token-actions .btn{width:100%}
-}
-
-/* Event details modal */
 .event-modal{width:92%;max-width:820px;border-radius:14px;padding:16px;background:#fff;max-height:86vh;overflow:auto}
 .event-card{border-radius:12px;padding:14px;margin-bottom:12px;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:0 12px 30px rgba(2,6,23,0.06)}
-.footer-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
 
-/* Responsive adjustments */
-@media(max-width:820px){
-  .panel{display:none}
-  #calendar{padding:8px;gap:8px}
+/* Upcoming */
+.upcoming{max-width:1100px;margin:0 auto 24px auto;padding:14px;border-radius:12px;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:var(--shadow)}
+.upcoming-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.upcoming-item{border:1px solid #eef2ff;border-radius:10px;padding:10px;background:#fff}
+
+/* Responsive tweaks */
+@media(max-width:820px){ .panel{display:none} }
+@media(max-width:600px){
+  header,.panel,.event-modal,.upcoming{width:100%;max-width:100%;margin:0 auto;padding:10px;border-radius:0}
+  .calendar-inner{min-width:860px}
   .day{min-height:90px;padding:10px}
+  .upcoming-list{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -84,11 +69,8 @@ textarea{min-height:90px;resize:vertical}
 <header>
   <div class="title">
     <div class="logo">EP</div>
-    <div>
-      <div style="font-weight:700">Event Planner</div>
-    </div>
+    <div><div style="font-weight:700">Event Planner</div></div>
   </div>
-
   <div class="controls">
     <button id="prev" class="btn">◀</button>
     <div id="monthLabel" class="small"></div>
@@ -98,79 +80,52 @@ textarea{min-height:90px;resize:vertical}
 </header>
 
 <main>
-  <div id="calendar"></div>
+  <div class="calendar-wrap"><div class="calendar-inner"><div id="calendar"></div></div></div>
+
+  <section id="upcomingBox" class="upcoming" aria-hidden="false">
+    <h3 style="margin:0 0 8px 0">Upcoming events</h3>
+    <div id="upcomingList" class="upcoming-list"></div>
+  </section>
 
   <aside id="panel" class="panel" aria-hidden="true">
     <h3 id="dayTitlePanel"></h3>
-
     <ul id="eventsListPanel"></ul>
-
     <div id="addSection" class="form-row">
       <input id="eventTitle" type="text" placeholder="Event title" />
       <textarea id="eventDesc" placeholder="Event description (details, location, time, etc.)"></textarea>
     </div>
-
     <div style="display:flex;gap:8px;margin-top:10px">
       <button id="addEvent" class="btn-primary">Add Event</button>
       <button id="closePanel" class="btn">Close</button>
     </div>
-
-    <!-- Hidden admin/status elements kept for JS compatibility -->
-    <div id="adminNotice" style="display:none"></div>
-    <div id="adminState" style="display:none"></div>
-    <div id="githubStatus" style="display:none"></div>
-    <div style="display:none" id="repoInfo">Repo: <strong>page-host/panda-homepage/events.json</strong></div>
   </aside>
 </main>
 
-<!-- Event details modal -->
 <div id="eventModalBackdrop" class="modal-backdrop" aria-hidden="true">
   <div class="event-modal" role="dialog" aria-modal="true">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div>
-        <div id="eventModalDate" style="font-weight:700"></div>
-        <div class="small" id="modalSub">Click an event to read details</div>
-      </div>
-      <div>
-        <button id="modalAdd" class="btn-primary">Add Event</button>
-        <button id="modalClose" class="btn">Close</button>
-      </div>
+      <div><div id="eventModalDate" style="font-weight:700"></div><div class="small" id="modalSub">Tap an event to read details</div></div>
+      <div><button id="modalAdd" class="btn-primary">Add (admin)</button><button id="modalClose" class="btn">Close</button></div>
     </div>
-
     <div id="eventModalList"></div>
-
-    <div class="footer-row">
-      <div class="small" id="modalAdminNote"></div>
-    </div>
   </div>
 </div>
 
-<!-- Token login modal (responsive) -->
+<!-- Token modal (kept minimal) -->
 <div id="tokenModalBackdrop" class="modal-backdrop" aria-hidden="true">
-  <div class="modal" role="document" aria-labelledby="tokenLoginTitle">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div>
-        <h3 id="tokenLoginTitle" style="margin:0">Admin Login</h3>
-        <!-- <div class="small" style="margin-top:6px">Input Token</div> -->
-      </div>
-      <div style="display:flex;gap:8px">
-        <button id="tokenCancel" class="btn">Cancel</button>
-      </div>
-    </div>
-
-    <div class="token-grid" style="margin-top:12px">
-      <label for="tokenInput" class="small">Access Token</label>
-      <input id="tokenInput" type="password" placeholder="github_pat_..." autocomplete="one-time-code" />
-      <div class="token-actions" style="margin-top:6px">
-        <button id="tokenSubmit" class="btn-primary">Connect</button>
-      </div>
+  <div class="event-modal" role="document">
+    <h3 style="margin:0 0 8px 0">Admin Login</h3>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="tokenInput" type="password" placeholder="github_pat_..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #eef2ff" />
+      <button id="tokenSubmit" class="btn-primary">Connect</button>
+      <button id="tokenCancel" class="btn">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
 /* ===========================
-   Configuration
+   Config
 */
 const GITHUB_OWNER = 'page-host';
 const GITHUB_REPO  = 'panda-homepage';
@@ -178,8 +133,7 @@ const GITHUB_PATH  = 'events.json';
 const RAW_BRANCH = 'main';
 const COMMITTER_NAME = 'Event Planner';
 const COMMITTER_EMAIL = 'noreply@example.com';
-/* ===========================
-*/
+/* =========================== */
 
 /* Elements */
 const monthLabel = document.getElementById('monthLabel'), cal = document.getElementById('calendar');
@@ -187,104 +141,255 @@ const panel = document.getElementById('panel'), dayTitlePanel = document.getElem
 const addSection = document.getElementById('addSection'), eventTitle = document.getElementById('eventTitle'), eventDesc = document.getElementById('eventDesc');
 const addEvent = document.getElementById('addEvent'), closePanel = document.getElementById('closePanel');
 const prev = document.getElementById('prev'), next = document.getElementById('next'), adminBtn = document.getElementById('adminBtn');
-const adminState = document.getElementById('adminState'), adminNotice = document.getElementById('adminNotice'), githubStatus = document.getElementById('githubStatus');
 
 const eventModalBackdrop = document.getElementById('eventModalBackdrop'), eventModalDate = document.getElementById('eventModalDate'), eventModalList = document.getElementById('eventModalList');
-const modalClose = document.getElementById('modalClose'), modalAdd = document.getElementById('modalAdd'), modalAdminNote = document.getElementById('modalAdminNote');
+const modalClose = document.getElementById('modalClose'), modalAdd = document.getElementById('modalAdd');
 
 const tokenModalBackdrop = document.getElementById('tokenModalBackdrop'), tokenInput = document.getElementById('tokenInput');
 const tokenSubmit = document.getElementById('tokenSubmit'), tokenCancel = document.getElementById('tokenCancel');
 
+const upcomingList = document.getElementById('upcomingList');
+
 let adminMode = sessionStorage.getItem('isAdmin') === 'true';
 let viewDate = new Date();
 
-/* Token handling */
-function setSessionToken(token){
-  if(token) sessionStorage.setItem('gh_token_session', token);
-  else sessionStorage.removeItem('gh_token_session');
+/* -------------------------
+   Encoding helpers (UTF-8 safe)
+   ------------------------- */
+function utf8ToBase64(str){
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
-function getSessionToken(){ return sessionStorage.getItem('gh_token_session') || ''; }
+function base64ToUtf8(b64){
+  const binary = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
 
-/* Local events storage helpers */
-function saveLocalEvents(events){ localStorage.setItem('events_local', JSON.stringify(events)); }
-function loadLocalEvents(){ return JSON.parse(localStorage.getItem('events_local') || '{}'); }
+/* Detect if a string is base64-encoded JSON (heuristic) */
+function looksLikeBase64Json(s){
+  if(typeof s !== 'string') return false;
+  // quick check: base64 chars and length multiple of 4
+  if(!/^[A-Za-z0-9+/=\s]+$/.test(s)) return false;
+  try{
+    const decoded = base64ToUtf8(s);
+    JSON.parse(decoded);
+    return true;
+  }catch(e){ return false; }
+}
 
-/* fetchEventsFromGitHub: public-first with cache-busting */
+/* Local storage helpers with repair */
+function saveLocalEvents(obj){
+  try{
+    localStorage.setItem('events_local', JSON.stringify(obj));
+  }catch(e){
+    console.error('saveLocalEvents failed', e);
+  }
+}
+function loadLocalEvents(){
+  const raw = localStorage.getItem('events_local');
+  if(!raw) return {};
+  try{
+    const parsed = JSON.parse(raw);
+    if(typeof parsed === 'object' && parsed !== null) return parsed;
+  }catch(e){
+    // If parsing fails, maybe raw is base64-encoded JSON (older bug). Try to detect and repair.
+    if(looksLikeBase64Json(raw)){
+      try{
+        const repaired = JSON.parse(base64ToUtf8(raw));
+        saveLocalEvents(repaired);
+        return repaired;
+      }catch(err){
+        console.warn('Repair from base64 failed', err);
+      }
+    }
+    console.warn('loadLocalEvents parse failed', e);
+  }
+  // fallback
+  return {};
+}
+
+/* -------------------------
+   GitHub read/write helpers
+   ------------------------- */
 async function fetchEventsFromGitHub(token){
   const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
-
-  // 1) Try unauthenticated public raw fetch (cache-busted)
-  try {
+  // 1) try raw public file
+  try{
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${RAW_BRANCH}/${encodeURIComponent(path)}?t=${Date.now()}`;
-    const rawRes = await fetch(rawUrl, { cache: 'no-cache' });
-    if (rawRes.ok) {
-      const text = await rawRes.text();
-      if (text && text.trim()) {
-        try {
-          const parsed = JSON.parse(text);
-          return { json: parsed, sha: null };
-        } catch (err) {
-          console.warn('Raw JSON parse failed', err);
+    const r = await fetch(rawUrl, {cache:'no-cache'});
+    if(r.ok){
+      const text = await r.text();
+      if(text && text.trim()){
+        // If the raw file is base64 string (accidentally), detect and decode
+        if(looksLikeBase64Json(text)){
+          const decoded = base64ToUtf8(text);
+          return { json: JSON.parse(decoded), sha: null };
         }
+        // otherwise parse as JSON text
+        return { json: JSON.parse(text), sha: null };
       }
-    } else {
-      console.warn('Raw fetch status', rawRes.status);
     }
-  } catch (err) {
-    console.warn('Public raw fetch error', err);
+  }catch(e){
+    console.warn('Public raw fetch failed', e);
   }
 
-  // 2) Fallback to authenticated contents API if token provided
-  if (!token) return null;
+  // 2) fallback to contents API (authenticated)
+  if(!token) return null;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }});
+  const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }, cache:'no-cache' });
   if(res.status === 200){
     const j = await res.json();
-    const content = atob(j.content.replace(/\n/g,'')); // decode base64
-    return { json: JSON.parse(content), sha: j.sha };
+    // j.content is base64 of file content; decode safely
+    try{
+      const content = base64ToUtf8(j.content);
+      // If content itself is a base64 string (accidentally stored), detect and decode again
+      if(looksLikeBase64Json(content)){
+        const decoded = base64ToUtf8(content);
+        return { json: JSON.parse(decoded), sha: j.sha };
+      }
+      return { json: JSON.parse(content), sha: j.sha };
+    }catch(e){
+      console.error('Error decoding contents API response', e);
+      return null;
+    }
+  } else if(res.status === 404){
+    return null;
   } else {
-    console.warn('Authenticated contents API fetch failed', res.status);
+    console.warn('Contents API fetch failed', res.status);
     return null;
   }
 }
 
-/* pushEventsToGitHub with logging */
 async function pushEventsToGitHub(token, eventsObj, currentSha){
   const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(eventsObj, null, 2))));
+
+  // Ensure eventsObj is an object (not a string)
+  if(typeof eventsObj === 'string'){
+    try{ eventsObj = JSON.parse(eventsObj); }catch(e){ /* leave as-is */ }
+  }
+
+  // Final JSON string
+  const jsonText = JSON.stringify(eventsObj, null, 2);
+  const contentBase64 = utf8ToBase64(jsonText);
+
   const body = {
     message: currentSha ? `Update events ${new Date().toISOString()}` : `Create events ${new Date().toISOString()}`,
     content: contentBase64,
     committer: { name: COMMITTER_NAME, email: COMMITTER_EMAIL }
   };
   if(currentSha) body.sha = currentSha;
+
   const res = await fetch(url, {
     method: 'PUT',
     headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
     body: JSON.stringify(body)
   });
-  console.log('PUT to GitHub status', res.status);
   if(!res.ok){
     const text = await res.text();
-    console.error('GitHub PUT error body', text);
     const err = new Error(`GitHub API error ${res.status}: ${text}`);
-    err.status = res.status;
-    err.body = text;
+    err.status = res.status; err.body = text;
     throw err;
   }
   return await res.json();
 }
 
-/* UI rendering */
+/* Fetch remote content & sha helper */
+async function fetchRemoteContentAndSha(token){
+  const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }, cache:'no-cache' });
+  if(res.ok){
+    const j = await res.json();
+    try{
+      const content = base64ToUtf8(j.content);
+      if(looksLikeBase64Json(content)){
+        const decoded = base64ToUtf8(content);
+        return { json: JSON.parse(decoded), sha: j.sha };
+      }
+      return { json: JSON.parse(content), sha: j.sha };
+    }catch(e){
+      console.error('fetchRemoteContentAndSha decode error', e);
+      return { json: null, sha: j.sha };
+    }
+  } else if(res.status === 404){
+    return { json: null, sha: null };
+  } else {
+    throw new Error('Failed to fetch remote metadata: ' + res.status);
+  }
+}
+
+/* tryPushToGitHub with conflict handling and merge */
+async function tryPushToGitHub(eventsObj){
+  const token = sessionStorage.getItem('gh_token_session') || '';
+  if(!token) return;
+  let currentSha = localStorage.getItem('gh_sha') || null;
+
+  // Ensure we have latest sha if possible
+  if(!currentSha){
+    try{
+      const meta = await fetchRemoteContentAndSha(token);
+      if(meta && meta.sha) { currentSha = meta.sha; localStorage.setItem('gh_sha', currentSha); }
+    }catch(e){ console.warn('Could not fetch initial sha', e); }
+  }
+
+  const MAX_RETRIES = 3;
+  for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+    try{
+      const res = await pushEventsToGitHub(token, eventsObj, currentSha);
+      if(res && res.content && res.content.sha){
+        localStorage.setItem('gh_sha', res.content.sha);
+        localStorage.setItem('events_last_push', new Date().toISOString());
+      }
+      // after successful push, refresh local copy
+      await pullFromGitHubSession(false);
+      return;
+    }catch(err){
+      // If conflict or missing sha, fetch remote, merge, retry
+      const msg = err && err.message ? err.message : String(err);
+      if(err.status === 409 || msg.includes('409') || msg.includes('sha') || msg.includes('422')){
+        try{
+          const remote = await fetchRemoteContentAndSha(token);
+          const remoteJson = remote.json || {};
+          // Merge: remote first, then local changes (dedupe)
+          const merged = mergeEventsObjects(eventsObj, remoteJson);
+          eventsObj = merged;
+          currentSha = remote.sha || null;
+          saveLocalEvents(merged);
+          await new Promise(r => setTimeout(r, 300 * attempt));
+          continue;
+        }catch(fetchErr){
+          console.error('Merge attempt failed', fetchErr);
+          throw fetchErr;
+        }
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('Push failed after retries');
+}
+
+/* -------------------------
+   UI rendering & logic
+   ------------------------- */
+function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
 function renderMonth(d = new Date()){
   cal.innerHTML = '';
   const year = d.getFullYear(), m = d.getMonth();
   monthLabel.textContent = d.toLocaleString(undefined, { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(year, m + 1, 0).getDate();
+  const daysInMonth = new Date(year, m+1, 0).getDate();
   const firstDay = new Date(year, m, 1).getDay();
-  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(w => { const el = document.createElement('div'); el.className = 'weekday'; el.textContent = w; cal.appendChild(el) });
-  for(let i=0;i<firstDay;i++){ const e = document.createElement('div'); e.className='day empty'; cal.appendChild(e) }
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(w => { const el = document.createElement('div'); el.className='weekday'; el.textContent = w; cal.appendChild(el); });
+  for(let i=0;i<firstDay;i++){ const e = document.createElement('div'); e.className='day empty'; cal.appendChild(e); }
   const events = loadLocalEvents();
   for(let day=1; day<=daysInMonth; day++){
     const cell = document.createElement('div'); cell.className='day';
@@ -292,144 +397,160 @@ function renderMonth(d = new Date()){
     cell.dataset.date = iso;
     cell.innerHTML = `<div class="date">${day}</div><div class="events"></div>`;
     const evs = events[iso] || [];
-    if(evs.length) cell.querySelector('.events').innerHTML = evs.map((e, idx) => `<span class="eventDot" data-idx="${idx}" data-date="${iso}">${escapeHtml(e.title)}</span>`).join('');
+    if(evs.length){
+      const container = cell.querySelector('.events');
+      evs.forEach((ev, idx) => {
+        const span = document.createElement('span');
+        span.className = 'eventDot';
+        span.title = ev.title || '';
+        span.textContent = ev.title || '';
+        span.dataset.idx = idx;
+        span.dataset.date = iso;
+        container.appendChild(span);
+      });
+    }
     cell.addEventListener('click', (ev) => {
-      // If user clicked an event dot, open modal for that date; otherwise open day panel if admin
       const target = ev.target;
       const date = cell.dataset.date;
-      if(target.classList.contains('eventDot')){
-        openEventModal(date);
-      } else {
-        onDayClick(date);
-      }
+      if(target.classList.contains('eventDot')) openEventModal(date);
+      else onDayClick(date);
     });
     cal.appendChild(cell);
   }
+  renderUpcomingBox();
 }
 
-/* Day click behavior */
+function renderUpcomingBox(limit = 8){
+  const all = loadLocalEvents();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const items = [];
+  Object.keys(all).forEach(dateStr => {
+    const dt = new Date(dateStr + 'T00:00:00');
+    if(isNaN(dt)) return;
+    (all[dateStr] || []).forEach(ev => items.push({date: dateStr, title: ev.title || '', description: ev.description || ''}));
+  });
+  items.sort((a,b) => a.date.localeCompare(b.date));
+  const sliced = items.filter(it => new Date(it.date + 'T00:00:00') >= today).slice(0, limit);
+  upcomingList.innerHTML = '';
+  if(sliced.length === 0){ upcomingList.innerHTML = '<div class="small" style="grid-column:1 / -1">No upcoming events</div>'; return; }
+  sliced.forEach(item => {
+    const el = document.createElement('div'); el.className = 'upcoming-item';
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted)">${new Date(item.date).toDateString()}</div>
+                    <div style="font-weight:600;margin-top:6px">${escapeHtml(item.title)}</div>
+                    <div style="font-size:13px;color:#334155;margin-top:6px">${escapeHtml(item.description)}</div>
+                    <div style="margin-top:8px"><button class="btn" data-date="${item.date}">Open</button></div>`;
+    el.querySelector('button').onclick = () => openEventModal(item.date);
+    upcomingList.appendChild(el);
+  });
+}
+
+/* Day click */
 function onDayClick(date){
   const evs = loadLocalEvents()[date] || [];
   if(evs.length === 0){
-    if(adminMode){
-      openPanel(date);
-    }
+    if(adminMode) openPanel(date);
     return;
   }
   openEventModal(date);
 }
 
-/* Side panel (admin) */
+/* Panel */
 function openPanel(date){
   panel.classList.add('show'); panel.dataset.date = date;
   dayTitlePanel.textContent = new Date(date).toDateString();
   renderEventsPanel();
-  updateAddSectionVisibility();
 }
 function renderEventsPanel(){
   const date = panel.dataset.date; const evs = loadLocalEvents()[date] || [];
   eventsListPanel.innerHTML = '';
-  if(evs.length === 0){
-    const li = document.createElement('li'); li.innerHTML = `<div class="small">No events for this day.</div>`; eventsListPanel.appendChild(li);
-  } else {
-    evs.forEach((ev,i) => {
-      const li = document.createElement('li');
-      const left = document.createElement('div');
-      left.innerHTML = `<div style="font-weight:700">${escapeHtml(ev.title)}</div><div class="eventText">${escapeHtml(ev.description)}</div>`;
-      const actions = document.createElement('div'); actions.className = 'event-actions';
-      if(adminMode){
-        const e = document.createElement('button'); e.textContent = 'Edit'; e.className='btn'; e.onclick = ()=>editEvent(date,i);
-        const d = document.createElement('button'); d.textContent = 'Delete'; d.className='btn'; d.onclick = ()=>{ if(confirm('Delete this event?')){ deleteEvent(date,i) } };
-        actions.appendChild(e); actions.appendChild(d);
-      }
-      li.appendChild(left); li.appendChild(actions); eventsListPanel.appendChild(li);
-    });
-  }
+  if(evs.length === 0){ eventsListPanel.innerHTML = '<li><div class="small">No events for this day.</div></li>'; return; }
+  evs.forEach((ev,i) => {
+    const li = document.createElement('li');
+    li.style.display = 'grid'; li.style.gridTemplateColumns = '1fr auto'; li.style.gap = '8px';
+    const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:700">${escapeHtml(ev.title)}</div><div class="small">${escapeHtml(ev.description)}</div>`;
+    const actions = document.createElement('div');
+    if(adminMode){
+      const e = document.createElement('button'); e.className='btn'; e.textContent='Edit'; e.onclick = ()=>editEvent(date,i);
+      const d = document.createElement('button'); d.className='btn'; d.textContent='Delete'; d.onclick = ()=>{ if(confirm('Delete this event?')) deleteEvent(date,i); };
+      actions.appendChild(e); actions.appendChild(d);
+    }
+    li.appendChild(left); li.appendChild(actions); eventsListPanel.appendChild(li);
+  });
 }
 
-/* Event modal */
+/* Modal */
 function openEventModal(date){
   const evs = loadLocalEvents()[date] || [];
   eventModalDate.textContent = new Date(date).toDateString();
   eventModalList.innerHTML = '';
-  if(evs.length === 0){
-    eventModalList.innerHTML = '<div class="small">No events for this day.</div>';
-  } else {
+  if(evs.length === 0){ eventModalList.innerHTML = '<div class="small">No events for this day.</div>'; }
+  else {
     evs.forEach((ev,i) => {
-      const card = document.createElement('div'); card.className = 'event-card';
-      const title = document.createElement('div'); title.className = 'title'; title.textContent = ev.title;
-      const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = ev.description || '';
-      const actions = document.createElement('div'); actions.className = 'event-actions';
+      const card = document.createElement('div'); card.className='event-card';
+      const title = document.createElement('div'); title.style='font-weight:700;margin-bottom:6px'; title.textContent = ev.title;
+      const desc = document.createElement('div'); desc.textContent = ev.description || '';
+      const actions = document.createElement('div'); actions.style='margin-top:8px;display:flex;gap:8px';
       if(adminMode){
-        const editBtn = document.createElement('button'); editBtn.textContent = 'Edit'; editBtn.className='btn'; editBtn.onclick = ()=>{ eventModalBackdrop.classList.remove('show'); editEvent(date,i); };
-        const delBtn = document.createElement('button'); delBtn.textContent = 'Delete'; delBtn.className='btn'; delBtn.onclick = ()=>{ if(confirm('Delete this event?')){ deleteEvent(date,i); eventModalBackdrop.classList.remove('show'); } };
+        const editBtn = document.createElement('button'); editBtn.className='btn'; editBtn.textContent='Edit'; editBtn.onclick = ()=>{ eventModalBackdrop.classList.remove('show'); editEvent(date,i); };
+        const delBtn = document.createElement('button'); delBtn.className='btn'; delBtn.textContent='Delete'; delBtn.onclick = ()=>{ if(confirm('Delete this event?')){ deleteEvent(date,i); eventModalBackdrop.classList.remove('show'); } };
         actions.appendChild(editBtn); actions.appendChild(delBtn);
       }
       card.appendChild(title); card.appendChild(desc); card.appendChild(actions);
       eventModalList.appendChild(card);
     });
   }
-  // modalAdminNote.textContent = adminMode ? 'You are viewing as admin.' : 'Viewing only. Login as admin to modify.';
-  modalAdd.style.display = adminMode ? 'inline-block' : 'none';
   eventModalBackdrop.classList.add('show'); eventModalBackdrop.setAttribute('aria-hidden','false');
   eventModalBackdrop.dataset.date = date;
 }
 
-/* Add/Edit/Delete (admin) */
-/* Ensure we always use a reliable date source: panel.dataset.date or eventModalBackdrop.dataset.date */
-addEvent.onclick = async ()=>{
+/* Add/Edit/Delete */
+addEvent.onclick = async () => {
   if(!adminMode) return alert('Only admin can add events');
   const date = panel.dataset.date || eventModalBackdrop.dataset.date;
   if(!date) return alert('Select a date first');
   await addEventToDate(date);
-}
-modalAdd.onclick = ()=>{
+};
+modalAdd.onclick = () => {
   if(!adminMode) return alert('Only admin can add events');
   const date = eventModalBackdrop.dataset.date;
   if(!date) return alert('No date selected');
   openPanel(date);
   eventTitle.focus();
   eventModalBackdrop.classList.remove('show');
-}
+};
 
 async function addEventToDate(date){
-  // normalize date to ISO YYYY-MM-DD
-  const isoDate = normalizeIsoDate(date);
-  const title = eventTitle.value.trim(); const description = eventDesc.value.trim();
+  const iso = normalizeIsoDate(date);
+  const title = eventTitle.value.trim(), description = eventDesc.value.trim();
   if(!title) return alert('Enter title');
   const all = loadLocalEvents();
-  all[isoDate] = all[isoDate] || [];
-  // push new event at end
-  all[isoDate].push({title,description});
-  // dedupe just in case
-  all[isoDate] = dedupeEventsArray(all[isoDate]);
+  all[iso] = all[iso] || [];
+  all[iso].push({ title, description });
+  all[iso] = dedupeEventsArray(all[iso]);
   saveLocalEvents(all);
   renderMonth(viewDate);
   renderEventsPanel();
-  // clear inputs after add
-  eventTitle.value = '';
-  eventDesc.value = '';
-  // push to GitHub (robust)
-  await tryPushToGitHub(all);
+  eventTitle.value=''; eventDesc.value='';
+  try{ await tryPushToGitHub(all); }catch(e){ console.error('Push failed', e); alert('Push failed: ' + e.message); }
 }
 
 function editEvent(date,i){
   if(!adminMode) return alert('Only admin can edit events');
-  const all = loadLocalEvents(); const ev = (all[date] || [])[i];
+  const all = loadLocalEvents(); const ev = (all[date]||[])[i];
   if(!ev) return alert('Event not found');
   const t = prompt('Edit title', ev.title); if(t===null) return;
   const d = prompt('Edit description', ev.description); if(d===null) return;
-  all[date][i] = {title: t, description: d};
-  // dedupe after edit
+  all[date][i] = { title: t, description: d };
   all[date] = dedupeEventsArray(all[date]);
   saveLocalEvents(all); renderMonth(viewDate); renderEventsPanel();
-  tryPushToGitHub(all);
+  tryPushToGitHub(all).catch(e=>console.error(e));
 }
 function deleteEvent(date,i){
   if(!adminMode) return alert('Only admin can delete events');
   const all = loadLocalEvents(); if(!all[date]) return;
-  all[date].splice(i,1); if(!all[date].length) delete all[date]; saveLocalEvents(all); renderMonth(viewDate); renderEventsPanel();
-  tryPushToGitHub(all);
+  all[date].splice(i,1); if(!all[date].length) delete all[date];
+  saveLocalEvents(all); renderMonth(viewDate); renderEventsPanel();
+  tryPushToGitHub(all).catch(e=>console.error(e));
 }
 
 /* Close handlers */
@@ -437,123 +558,66 @@ modalClose.onclick = ()=>{ eventModalBackdrop.classList.remove('show'); eventMod
 closePanel.onclick = ()=>panel.classList.remove('show')
 
 /* Navigation */
-prev.onclick = ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1); renderMonth(viewDate) }
-next.onclick = ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1); renderMonth(viewDate) }
+prev.onclick = ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1); renderMonth(viewDate); }
+next.onclick = ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1); renderMonth(viewDate); }
 
-/* Admin login via token only */
-adminBtn.onclick = async ()=>{
+/* Token handling */
+adminBtn.onclick = ()=> {
   if(adminMode){
-    adminMode=false; sessionStorage.removeItem('isAdmin'); adminBtn.textContent='Login'; updateAddSectionVisibility(); renderEventsPanel(); setSessionToken(''); githubStatus.textContent = ''; return;
+    adminMode=false; sessionStorage.removeItem('isAdmin'); adminBtn.textContent='Login'; updateAddSectionVisibility(); renderMonth(viewDate); sessionStorage.removeItem('gh_token_session'); localStorage.removeItem('gh_sha'); return;
   }
-  tokenInput.value = '';
   tokenModalBackdrop.classList.add('show'); tokenModalBackdrop.setAttribute('aria-hidden','false');
-  tokenInput.focus();
 };
-
 tokenCancel.onclick = ()=>{ tokenModalBackdrop.classList.remove('show'); tokenModalBackdrop.setAttribute('aria-hidden','true'); }
-
 tokenSubmit.onclick = async ()=>{
-  const token = tokenInput.value.trim();
-  if(!token) return alert('Personal Access Token: ');
+  const token = tokenInput.value.trim(); if(!token) return alert('Paste a GitHub PAT');
   tokenModalBackdrop.classList.remove('show'); tokenModalBackdrop.setAttribute('aria-hidden','true');
   try{
-    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
-    const repoRes = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }});
+    const repoRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`, { headers: { Authorization: `token ${token}` }});
     if(repoRes.status === 200){
-      setSessionToken(token);
+      sessionStorage.setItem('gh_token_session', token);
       adminMode = true; sessionStorage.setItem('isAdmin','true'); adminBtn.textContent='Logout Admin';
       updateAddSectionVisibility();
-      githubStatus.textContent = `GitHub: connected (session) to ${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_PATH}`;
-      try{
-        const res = await fetchEventsFromGitHub(token);
-        if(res && res.json){
-          saveLocalEvents(res.json);
-          if(res.sha) localStorage.setItem('gh_sha', res.sha);
-          renderMonth(viewDate);
-          // alert('Connected and pulled events from GitHub (if file existed).');
-        } else {
-          alert('Connected. No events file found in repo (will create on first push).');
-        }
-      }catch(err){
-        alert('Connected but pull failed: ' + err.message);
-      }
-    } else if(repoRes.status === 401 || repoRes.status === 403){
-      throw new Error('Token rejected (401/403). Check token scope and validity.');
+      const res = await fetchEventsFromGitHub(token);
+      if(res && res.json){ saveLocalEvents(res.json); if(res.sha) localStorage.setItem('gh_sha', res.sha); renderMonth(viewDate); }
+      else { alert('Connected. No events file found (will create on first push).'); }
     } else {
-      const txt = await repoRes.text();
-      throw new Error(`Unexpected response ${repoRes.status}: ${txt.slice(0,200)}`);
+      throw new Error('Token rejected or repo not accessible');
     }
-  }catch(err){
-    setSessionToken('');
-    adminMode = false;
-    alert('Token validation failed: ' + err.message);
-    githubStatus.textContent = '';
-  }
+  }catch(e){ alert('Token validation failed: ' + e.message); sessionStorage.removeItem('gh_token_session'); adminMode=false; sessionStorage.removeItem('isAdmin'); }
 };
 
-/* Pull helper (public-first) */
-async function pullFromGitHubSession(showErrors = false){
-  try {
+/* Pull helper */
+async function pullFromGitHubSession(showErrors=false){
+  try{
     const publicRes = await fetchEventsFromGitHub(null);
-    if (publicRes && publicRes.json) {
-      saveLocalEvents(publicRes.json);
-      renderMonth(viewDate);
-      return true;
-    }
-  } catch (err) {
-    console.warn('Public pull attempt failed', err);
-  }
-
-  const token = getSessionToken();
-  if(!token){
-    if(showErrors) alert('No public events file found and no admin token available.');
-    return false;
-  }
-  try {
+    if(publicRes && publicRes.json){ saveLocalEvents(publicRes.json); renderMonth(viewDate); return true; }
+  }catch(e){ console.warn('Public pull failed', e); }
+  const token = sessionStorage.getItem('gh_token_session') || '';
+  if(!token){ if(showErrors) console.warn('No token'); return false; }
+  try{
     const res = await fetchEventsFromGitHub(token);
-    if(res && res.json){
-      saveLocalEvents(res.json);
-      if(res.sha) localStorage.setItem('gh_sha', res.sha);
-      renderMonth(viewDate);
-      return true;
-    } else {
-      if(showErrors) alert('No events file found in repo (will create on first push).');
-      return false;
-    }
-  } catch (err) {
-    if(showErrors) alert('Pull failed: ' + err.message);
-    throw err;
-  }
+    if(res && res.json){ saveLocalEvents(res.json); if(res.sha) localStorage.setItem('gh_sha', res.sha); renderMonth(viewDate); return true; }
+    return false;
+  }catch(e){ if(showErrors) console.error(e); throw e; }
 }
 
 /* Utilities */
-function escapeHtml(s){
-  if(!s) return '';
-  return s.replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) });
-}
 function normalizeIsoDate(d){
-  // Accept either YYYY-MM-DD or Date object or other string; return YYYY-MM-DD
   if(!d) return '';
   if(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
   const dt = new Date(d);
   if(isNaN(dt)) return d;
   return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
 }
-
-/* Merge helpers for conflict resolution and dedupe */
 function dedupeEventsArray(arr){
-  const seen = new Set();
-  const out = [];
+  const seen = new Set(); const out = [];
   for(const ev of arr || []){
     const key = `${(ev.title||'').trim()}|${(ev.description||'').trim()}`;
-    if(!seen.has(key)){
-      seen.add(key);
-      out.push(ev);
-    }
+    if(!seen.has(key)){ seen.add(key); out.push(ev); }
   }
   return out;
 }
-
 function mergeEventsObjects(localObj, remoteObj){
   const merged = Object.assign({}, remoteObj || {});
   for(const date of Object.keys(localObj || {})){
@@ -561,182 +625,48 @@ function mergeEventsObjects(localObj, remoteObj){
     const remoteArr = Array.isArray(merged[date]) ? merged[date] : [];
     merged[date] = dedupeEventsArray(remoteArr.concat(localArr));
   }
-  // keep remote-only dates already in merged
   return merged;
 }
 
-async function fetchRemoteContentAndSha(token){
-  const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }, cache: 'no-cache' });
-  if(res.ok){
-    const j = await res.json();
-    const content = atob(j.content.replace(/\n/g,'')); // decode base64
-    return { json: JSON.parse(content), sha: j.sha };
-  }
-  if(res.status === 404) return { json: null, sha: null };
-  throw new Error(`Failed to fetch remote content: ${res.status}`);
-}
-
-/* Robust push with conflict handling and automatic merge */
-async function tryPushToGitHub(eventsObj){
-  const token = getSessionToken();
-  if(!token){
-    // no token: nothing to push
-    githubStatus.textContent = '';
-    return;
-  }
-  githubStatus.textContent = 'GitHub: syncing...';
-
-  const MAX_RETRIES = 3;
-  let attempt = 0;
-  let currentSha = localStorage.getItem('gh_sha') || null;
-
-  // If we don't have a sha, try to fetch metadata once before first attempt
-  if(!currentSha){
-    try {
-      const meta = await fetchRemoteContentAndSha(token);
-      if(meta && meta.sha) { currentSha = meta.sha; localStorage.setItem('gh_sha', currentSha); }
-    } catch(e){
-      console.warn('Could not fetch initial sha', e);
-    }
-  }
-
-  while(attempt < MAX_RETRIES){
-    attempt++;
-    try{
-      // call push function (it expects currentSha or null)
-      const res = await pushEventsToGitHub(token, eventsObj, currentSha);
-      if(res && res.content && res.content.sha){
-        localStorage.setItem('gh_sha', res.content.sha);
-        localStorage.setItem('events_last_push', new Date().toISOString());
-      }
-      githubStatus.textContent = '';
-      // refresh local copy
-      try { await pullFromGitHubSession(false); } catch(e){ console.warn('pull after push failed', e); }
-      return; // success
-    }catch(err){
-      const msg = err && err.message ? err.message : String(err);
-      console.warn(`Push attempt ${attempt} failed:`, msg);
-
-      // If conflict (409) or missing sha (422), fetch remote, merge, and retry
-      if((err.status === 409) || msg.includes('409') || msg.includes('sha') || msg.includes('422')){
-        try{
-          const remote = await fetchRemoteContentAndSha(token);
-          const remoteJson = remote.json || {};
-          const remoteSha = remote.sha || null;
-
-          // Merge remote and local (local changes should be preserved)
-          const merged = mergeEventsObjects(eventsObj, remoteJson);
-
-          // Update eventsObj to merged and set currentSha to remoteSha (may be null if file missing)
-          eventsObj = merged;
-          currentSha = remoteSha;
-          // update local storage so UI shows merged state
-          saveLocalEvents(merged);
-
-          // small delay before retry to reduce race
-          await new Promise(r => setTimeout(r, 500 * attempt));
-          continue; // retry
-        }catch(fetchErr){
-          console.warn('Failed to fetch/merge remote after conflict', fetchErr);
-          githubStatus.textContent = '';
-          alert('GitHub push failed and merge attempt failed: ' + fetchErr.message);
-          throw fetchErr;
-        }
-      } else {
-        // other error: surface to user
-        githubStatus.textContent = '';
-        alert('GitHub push failed: ' + msg);
-        throw err;
-      }
-    }
-  }
-
-  // If we exit loop without returning, final failure
-  githubStatus.textContent = '';
-  alert('GitHub push failed after multiple attempts. Please refresh and try again.');
-}
-
-/* Remote SHA poller: auto-detect remote updates and pull */
-async function fetchRemoteSha(token) {
-  const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-  try {
+/* Remote SHA poller */
+async function fetchRemoteSha(token){
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponent(GITHUB_PATH)}`;
+  try{
     const headers = { Accept: 'application/vnd.github.v3+json' };
-    if (token) headers.Authorization = `token ${token}`;
-    const res = await fetch(url, { method: 'GET', headers, cache: 'no-cache' });
-    if (res.ok) {
-      const j = await res.json();
-      return j.sha || null;
-    } else {
-      return null;
-    }
-  } catch (err) {
-    console.warn('fetchRemoteSha error', err);
+    if(token) headers.Authorization = `token ${token}`;
+    const res = await fetch(url, { method:'GET', headers, cache:'no-cache' });
+    if(res.ok){ const j = await res.json(); return j.sha || null; }
     return null;
-  }
+  }catch(e){ console.warn(e); return null; }
 }
-
 let _remotePollRunning = false;
-async function remoteShaPoller() {
-  if (_remotePollRunning) return;
+async function remoteShaPoller(){
+  if(_remotePollRunning) return;
   _remotePollRunning = true;
-  try {
-    const token = getSessionToken();
+  try{
+    const token = sessionStorage.getItem('gh_token_session') || '';
     const remoteSha = await fetchRemoteSha(token);
     const localSha = localStorage.getItem('gh_sha') || null;
-    if (remoteSha && remoteSha !== localSha) {
-      try {
-        await pullFromGitHubSession(false);
-        localStorage.setItem('events_last_pull', new Date().toISOString());
-      } catch (err) {
-        console.warn('Pull after remote SHA change failed', err);
-      }
-    }
-  } finally {
-    _remotePollRunning = false;
-  }
+    if(remoteSha && remoteSha !== localSha){ await pullFromGitHubSession(false); localStorage.setItem('events_last_pull', new Date().toISOString()); }
+  }finally{ _remotePollRunning = false; }
 }
 
-/* Init (public-first) */
+/* Init */
 (async function init(){
-  updateAddSectionVisibility();
-  try{
-    await pullFromGitHubSession(false);
-  }catch(e){
-    console.warn('Initial pull failed', e);
-  }
+  try{ await pullFromGitHubSession(false); }catch(e){ console.warn('Initial pull failed', e); }
   renderMonth(viewDate);
-  // start remote poller shortly after init
   setTimeout(remoteShaPoller, 3000);
+  setInterval(remoteShaPoller, 25000);
 })();
-
-/* Polling: refresh public copy periodically */
-const REMOTE_POLL_INTERVAL_MS = 25000;
-setInterval(remoteShaPoller, REMOTE_POLL_INTERVAL_MS);
 
 /* Storage event: refresh when another tab pushes */
 window.addEventListener('storage', (e) => {
-  if(e.key === 'events_last_push'){
-    pullFromGitHubSession().catch(err => console.warn('pull on storage event failed', err));
-  }
+  if(e.key === 'events_last_push'){ pullFromGitHubSession().catch(err => console.warn('pull on storage event failed', err)); }
 });
 
-/* Update add form visibility */
-function updateAddSectionVisibility(){
-  // Keep elements present but hidden; JS still updates them if needed
-  if(adminMode){
-    adminNotice.textContent = '';
-    adminState.textContent = '';
-    githubStatus.textContent = '';
-  } else {
-    adminNotice.textContent = '';
-    adminState.textContent = '';
-    githubStatus.textContent = '';
-  }
-}
+/* UI helpers */
+function updateAddSectionVisibility(){ /* keep simple; panel shows/hides */ }
+
 </script>
 </body>
 </html>
-
