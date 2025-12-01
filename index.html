@@ -77,12 +77,6 @@ textarea{min-height:90px;resize:vertical}
   #calendar{padding:8px;gap:8px}
   .day{min-height:90px;padding:10px}
 }
-
-/* Debug panel styles */
-#debugPanel{position:fixed;left:12px;bottom:12px;background:#fff;border:1px solid #ddd;padding:10px;border-radius:8px;z-index:9999;font-family:Inter,Arial,sans-serif;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.08);width:320px}
-#debugPanel h4{margin:0 0 8px 0;font-size:14px}
-#debugPanel pre{background:#f7f7f7;padding:8px;border-radius:6px;max-height:120px;overflow:auto}
-#debugPanel button{margin-right:6px;padding:6px 8px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
 </style>
 </head>
 <body>
@@ -175,22 +169,6 @@ textarea{min-height:90px;resize:vertical}
   </div>
 </div>
 
-<!-- Debug panel -->
-<div id="debugPanel" aria-hidden="false">
-  <h4>Debug panel</h4>
-  <div><strong>gh_sha:</strong> <span id="dbg_sha">—</span></div>
-  <div><strong>last push:</strong> <span id="dbg_lastpush">—</span></div>
-  <div style="margin-top:8px">
-    <button id="dbg_forcePull">Force public pull</button>
-    <button id="dbg_showLocal">Show local events</button>
-    <button id="dbg_showStorage">Show storage</button>
-  </div>
-  <div style="margin-top:8px">
-    <div class="small">Response / logs:</div>
-    <pre id="dbg_log">ready</pre>
-  </div>
-</div>
-
 <script>
 /* ===========================
    Configuration
@@ -245,7 +223,6 @@ async function fetchEventsFromGitHub(token){
       if (text && text.trim()) {
         try {
           const parsed = JSON.parse(text);
-          console.log('Public raw fetch succeeded');
           return { json: parsed, sha: null };
         } catch (err) {
           console.warn('Raw JSON parse failed', err);
@@ -553,6 +530,47 @@ function escapeHtml(s){
   return s.replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) });
 }
 
+/* Remote SHA poller: auto-detect remote updates and pull */
+async function fetchRemoteSha(token) {
+  const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+  try {
+    const headers = { Accept: 'application/vnd.github.v3+json' };
+    if (token) headers.Authorization = `token ${token}`;
+    const res = await fetch(url, { method: 'GET', headers, cache: 'no-cache' });
+    if (res.ok) {
+      const j = await res.json();
+      return j.sha || null;
+    } else {
+      return null;
+    }
+  } catch (err) {
+    console.warn('fetchRemoteSha error', err);
+    return null;
+  }
+}
+
+let _remotePollRunning = false;
+async function remoteShaPoller() {
+  if (_remotePollRunning) return;
+  _remotePollRunning = true;
+  try {
+    const token = getSessionToken();
+    const remoteSha = await fetchRemoteSha(token);
+    const localSha = localStorage.getItem('gh_sha') || null;
+    if (remoteSha && remoteSha !== localSha) {
+      try {
+        await pullFromGitHubSession(false);
+        localStorage.setItem('events_last_pull', new Date().toISOString());
+      } catch (err) {
+        console.warn('Pull after remote SHA change failed', err);
+      }
+    }
+  } finally {
+    _remotePollRunning = false;
+  }
+}
+
 /* Init (public-first) */
 (async function init(){
   updateAddSectionVisibility();
@@ -568,16 +586,13 @@ function escapeHtml(s){
     githubStatus.textContent = 'GitHub: not connected (repo fixed)';
   }
   renderMonth(viewDate);
+  // start remote poller shortly after init
+  setTimeout(remoteShaPoller, 3000);
 })();
 
 /* Polling: refresh public copy periodically */
-setInterval(async () => {
-  try {
-    await pullFromGitHubSession(false);
-  } catch (e) {
-    console.warn('Periodic pull failed', e);
-  }
-}, 25000);
+const REMOTE_POLL_INTERVAL_MS = 25000;
+setInterval(remoteShaPoller, REMOTE_POLL_INTERVAL_MS);
 
 /* Storage event: refresh when another tab pushes */
 window.addEventListener('storage', (e) => {
@@ -596,64 +611,6 @@ function updateAddSectionVisibility(){
     adminState.textContent = 'off';
   }
 }
-
-/* Debug panel behavior */
-(function(){
-  const dbg_sha = document.getElementById('dbg_sha');
-  const dbg_lastpush = document.getElementById('dbg_lastpush');
-  const dbg_log = document.getElementById('dbg_log');
-
-  function log(msg){
-    console.log(msg);
-    dbg_log.textContent = (new Date()).toLocaleTimeString() + ' — ' + msg + '\n' + dbg_log.textContent;
-  }
-
-  function refreshStatus(){
-    dbg_sha.textContent = localStorage.getItem('gh_sha') || 'null';
-    dbg_lastpush.textContent = localStorage.getItem('events_last_push') || 'never';
-  }
-
-  async function publicPull(){
-    log('Starting public raw fetch (cache-busted)...');
-    try{
-      const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(GITHUB_OWNER)}/${encodeURIComponent(GITHUB_REPO)}/${encodeURIComponent(RAW_BRANCH)}/${encodeURIComponent(GITHUB_PATH)}?t=${Date.now()}`;
-      const r = await fetch(rawUrl, {cache:'no-cache'});
-      log('raw fetch status: ' + r.status);
-      if(r.ok){
-        const text = await r.text();
-        try{
-          const parsed = JSON.parse(text);
-          localStorage.setItem('events_local', JSON.stringify(parsed));
-          log('Public raw JSON parsed and saved to localStorage (events_local).');
-          refreshStatus();
-          renderMonth(viewDate);
-        }catch(e){
-          log('Public raw JSON parse failed: ' + e.message);
-        }
-      } else {
-        log('Raw fetch not ok: ' + r.status);
-      }
-    }catch(e){
-      log('Public raw fetch error: ' + e.message);
-    }
-  }
-
-  document.getElementById('dbg_forcePull').addEventListener('click', publicPull);
-  document.getElementById('dbg_showLocal').addEventListener('click', ()=>{
-    const ev = localStorage.getItem('events_local') || '{}';
-    log('events_local length: ' + ev.length);
-    alert(ev.slice(0,2000));
-  });
-  document.getElementById('dbg_showStorage').addEventListener('click', ()=>{
-    const keys = ['events_local','gh_sha','events_last_push'];
-    const out = keys.map(k => `${k}: ${localStorage.getItem(k)}`).join('\n\n');
-    alert(out);
-    log('showed storage keys');
-  });
-
-  refreshStatus();
-  setInterval(refreshStatus, 5000);
-})();
 </script>
 </body>
 </html>
