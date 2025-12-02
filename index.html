@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>4AM Event</title>
+<title>4AM Events</title>
 <link rel="icon" href="assets/cal.png">
 <style>
-/* Minimal responsive styles, keep date boxes intact and scrollable on small screens */
+/* Theme & layout */
 :root{
   --bg:#f6f8fb; --card:#fff; --muted:#6b7280;
   --accent-1:#4f46e5; --accent-2:#06b6d4;
@@ -14,10 +14,28 @@
   --shadow: 0 8px 30px rgba(15,23,42,0.08);
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#0f172a;padding-bottom:40px}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px;max-width:1100px;margin:18px auto;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;box-shadow:var(--shadow)}
+html,body{height:100%}
+body{
+  margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#0f172a;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;padding-bottom:40px;
+}
+
+/* Header */
+header{
+  display:flex;align-items:center;justify-content:space-between;padding:14px;max-width:1100px;margin:18px auto;
+  background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;box-shadow:var(--shadow);
+}
 .title{display:flex;gap:12px;align-items:center}
-.logo{width:44px;height:44px;border-radius:10px;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+.logo{
+  width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:var(--accent-grad);color:#fff;font-weight:700;flex:0 0 44px;overflow:hidden;
+}
+.logo img{width:100%;height:100%;object-fit:cover;display:block;border-radius:10px}
+.logo-text{display:none;color:#fff;font-weight:700}
+.logo[data-has-image="false"]{background:var(--accent-grad);align-items:center;justify-content:center}
+.logo[data-has-image="false"] .logo-text{display:block;font-size:14px}
+
+/* Controls */
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 button{border:0;background:transparent;padding:8px 10px;border-radius:10px;cursor:pointer}
 .btn{background:var(--card);border:1px solid #eef2ff;padding:8px 12px;border-radius:10px;color:#0f172a}
@@ -68,9 +86,19 @@ textarea{min-height:90px;resize:vertical}
 <body>
 <header>
   <div class="title">
-    <div class="logo">EP</div>
-    <div><div style="font-weight:700">Event Planner</div></div>
+    <div id="logoContainer" class="logo" data-has-image="false" aria-hidden="false">
+      <!-- Primary: online event icon. Fallback: local assets/logo.png -->
+      <img id="siteLogo"
+           src="https://img.icons8.com/fluency/48/000000/event.png"
+           alt="Event Planner logo"
+           onload="document.getElementById('logoContainer').setAttribute('data-has-image','true');"
+           onerror="this.style.display='none'; document.getElementById('logoContainer').setAttribute('data-has-image','false');" />
+      <img id="localLogo" src="assets/logo.png" alt="Local logo" style="display:none;border-radius:10px;width:44px;height:44px;object-fit:cover" onload="document.getElementById('logoContainer').setAttribute('data-has-image','true');" onerror="this.style.display='none';" />
+      <span class="logo-text">EP</span>
+    </div>
+    <div><div style="font-weight:700">Events</div></div>
   </div>
+
   <div class="controls">
     <button id="prev" class="btn">◀</button>
     <div id="monthLabel" class="small"></div>
@@ -111,7 +139,7 @@ textarea{min-height:90px;resize:vertical}
   </div>
 </div>
 
-<!-- Token modal (kept minimal) -->
+<!-- Token modal -->
 <div id="tokenModalBackdrop" class="modal-backdrop" aria-hidden="true">
   <div class="event-modal" role="document">
     <h3 style="margin:0 0 8px 0">Admin Login</h3>
@@ -175,7 +203,6 @@ function base64ToUtf8(b64){
 /* Detect if a string is base64-encoded JSON (heuristic) */
 function looksLikeBase64Json(s){
   if(typeof s !== 'string') return false;
-  // quick check: base64 chars and length multiple of 4
   if(!/^[A-Za-z0-9+/=\s]+$/.test(s)) return false;
   try{
     const decoded = base64ToUtf8(s);
@@ -186,11 +213,8 @@ function looksLikeBase64Json(s){
 
 /* Local storage helpers with repair */
 function saveLocalEvents(obj){
-  try{
-    localStorage.setItem('events_local', JSON.stringify(obj));
-  }catch(e){
-    console.error('saveLocalEvents failed', e);
-  }
+  try{ localStorage.setItem('events_local', JSON.stringify(obj)); }
+  catch(e){ console.error('saveLocalEvents failed', e); }
 }
 function loadLocalEvents(){
   const raw = localStorage.getItem('events_local');
@@ -199,7 +223,6 @@ function loadLocalEvents(){
     const parsed = JSON.parse(raw);
     if(typeof parsed === 'object' && parsed !== null) return parsed;
   }catch(e){
-    // If parsing fails, maybe raw is base64-encoded JSON (older bug). Try to detect and repair.
     if(looksLikeBase64Json(raw)){
       try{
         const repaired = JSON.parse(base64ToUtf8(raw));
@@ -211,7 +234,6 @@ function loadLocalEvents(){
     }
     console.warn('loadLocalEvents parse failed', e);
   }
-  // fallback
   return {};
 }
 
@@ -220,45 +242,34 @@ function loadLocalEvents(){
    ------------------------- */
 async function fetchEventsFromGitHub(token){
   const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
-  // 1) try raw public file
   try{
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${RAW_BRANCH}/${encodeURIComponent(path)}?t=${Date.now()}`;
     const r = await fetch(rawUrl, {cache:'no-cache'});
     if(r.ok){
       const text = await r.text();
       if(text && text.trim()){
-        // If the raw file is base64 string (accidentally), detect and decode
         if(looksLikeBase64Json(text)){
           const decoded = base64ToUtf8(text);
           return { json: JSON.parse(decoded), sha: null };
         }
-        // otherwise parse as JSON text
         return { json: JSON.parse(text), sha: null };
       }
     }
-  }catch(e){
-    console.warn('Public raw fetch failed', e);
-  }
+  }catch(e){ console.warn('Public raw fetch failed', e); }
 
-  // 2) fallback to contents API (authenticated)
   if(!token) return null;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
   const res = await fetch(url, { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }, cache:'no-cache' });
   if(res.status === 200){
     const j = await res.json();
-    // j.content is base64 of file content; decode safely
     try{
       const content = base64ToUtf8(j.content);
-      // If content itself is a base64 string (accidentally stored), detect and decode again
       if(looksLikeBase64Json(content)){
         const decoded = base64ToUtf8(content);
         return { json: JSON.parse(decoded), sha: j.sha };
       }
       return { json: JSON.parse(content), sha: j.sha };
-    }catch(e){
-      console.error('Error decoding contents API response', e);
-      return null;
-    }
+    }catch(e){ console.error('Error decoding contents API response', e); return null; }
   } else if(res.status === 404){
     return null;
   } else {
@@ -270,23 +281,17 @@ async function fetchEventsFromGitHub(token){
 async function pushEventsToGitHub(token, eventsObj, currentSha){
   const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
-
-  // Ensure eventsObj is an object (not a string)
   if(typeof eventsObj === 'string'){
-    try{ eventsObj = JSON.parse(eventsObj); }catch(e){ /* leave as-is */ }
+    try{ eventsObj = JSON.parse(eventsObj); }catch(e){ }
   }
-
-  // Final JSON string
   const jsonText = JSON.stringify(eventsObj, null, 2);
   const contentBase64 = utf8ToBase64(jsonText);
-
   const body = {
     message: currentSha ? `Update events ${new Date().toISOString()}` : `Create events ${new Date().toISOString()}`,
     content: contentBase64,
     committer: { name: COMMITTER_NAME, email: COMMITTER_EMAIL }
   };
   if(currentSha) body.sha = currentSha;
-
   const res = await fetch(url, {
     method: 'PUT',
     headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' },
@@ -301,7 +306,6 @@ async function pushEventsToGitHub(token, eventsObj, currentSha){
   return await res.json();
 }
 
-/* Fetch remote content & sha helper */
 async function fetchRemoteContentAndSha(token){
   const owner = GITHUB_OWNER, repo = GITHUB_REPO, path = GITHUB_PATH;
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
@@ -315,10 +319,7 @@ async function fetchRemoteContentAndSha(token){
         return { json: JSON.parse(decoded), sha: j.sha };
       }
       return { json: JSON.parse(content), sha: j.sha };
-    }catch(e){
-      console.error('fetchRemoteContentAndSha decode error', e);
-      return { json: null, sha: j.sha };
-    }
+    }catch(e){ console.error('fetchRemoteContentAndSha decode error', e); return { json: null, sha: j.sha }; }
   } else if(res.status === 404){
     return { json: null, sha: null };
   } else {
@@ -326,20 +327,16 @@ async function fetchRemoteContentAndSha(token){
   }
 }
 
-/* tryPushToGitHub with conflict handling and merge */
 async function tryPushToGitHub(eventsObj){
   const token = sessionStorage.getItem('gh_token_session') || '';
   if(!token) return;
   let currentSha = localStorage.getItem('gh_sha') || null;
-
-  // Ensure we have latest sha if possible
   if(!currentSha){
     try{
       const meta = await fetchRemoteContentAndSha(token);
       if(meta && meta.sha) { currentSha = meta.sha; localStorage.setItem('gh_sha', currentSha); }
     }catch(e){ console.warn('Could not fetch initial sha', e); }
   }
-
   const MAX_RETRIES = 3;
   for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
     try{
@@ -348,17 +345,14 @@ async function tryPushToGitHub(eventsObj){
         localStorage.setItem('gh_sha', res.content.sha);
         localStorage.setItem('events_last_push', new Date().toISOString());
       }
-      // after successful push, refresh local copy
       await pullFromGitHubSession(false);
       return;
     }catch(err){
-      // If conflict or missing sha, fetch remote, merge, retry
       const msg = err && err.message ? err.message : String(err);
       if(err.status === 409 || msg.includes('409') || msg.includes('sha') || msg.includes('422')){
         try{
           const remote = await fetchRemoteContentAndSha(token);
           const remoteJson = remote.json || {};
-          // Merge: remote first, then local changes (dedupe)
           const merged = mergeEventsObjects(eventsObj, remoteJson);
           eventsObj = merged;
           currentSha = remote.sha || null;
@@ -653,6 +647,15 @@ async function remoteShaPoller(){
 
 /* Init */
 (async function init(){
+  // Logo load handling
+  const logoImg = document.getElementById('siteLogo');
+  logoImg.onload = () => { document.getElementById('logoContainer').setAttribute('data-has-image','true'); };
+  logoImg.onerror = () => {
+    const local = document.getElementById('localLogo');
+    if(local && local.complete && local.naturalWidth !== 0){ local.style.display='block'; logoImg.style.display='none'; document.getElementById('logoContainer').setAttribute('data-has-image','true'); }
+    else { document.getElementById('logoContainer').setAttribute('data-has-image','false'); }
+  };
+
   try{ await pullFromGitHubSession(false); }catch(e){ console.warn('Initial pull failed', e); }
   renderMonth(viewDate);
   setTimeout(remoteShaPoller, 3000);
@@ -665,7 +668,7 @@ window.addEventListener('storage', (e) => {
 });
 
 /* UI helpers */
-function updateAddSectionVisibility(){ /* keep simple; panel shows/hides */ }
+function updateAddSectionVisibility(){ /* panel visibility controls editing; kept minimal */ }
 
 </script>
 </body>
