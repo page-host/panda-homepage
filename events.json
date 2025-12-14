@@ -40,5 +40,29 @@
       "title": "ডিবিএমএস মেকআপ ক্লাস",
       "description": "Class link : https://bdren.zoom.us/j/92038918111?pwd=3ayeQb8G76zFmlx8USUlWbGcDOahoP.1"
     }
+  ],
+  "2025-12-20": [
+    {
+      "title": "এলগরিদম  ল্যাব রিপোর্ট সাবমিশন & কুইজ,ড্রয়িং অ্যাসাইনমেন্ট সাবমিশন",
+      "description": "ল্যাব রিপোর্ট টপিক : Activity Selection,Huffman coding(only encoding),Fractional Knapsack,BFS,DFS,Adjacency Matrix,Adjacency List,Dijkstra,Floyd Warshal,Numner theory,GCD,Prime factorization   কুইজ টপিক : ফাইনাল এ যা আছে সব  , ড্রয়িং অ্যাসাইনমেন্ট টপিক : Draw orthogonal projection view"
+    }
+  ],
+  "2025-12-23": [
+    {
+      "title": "Toc সিটি",
+      "description": "টপিক : Cnf,equivalence with cfg"
+    }
+  ],
+  "2025-12-24": [
+    {
+      "title": "এলগরিদম ল্যাব এক্সাম",
+      "description": "টপিক : Activity Selection,Huffman coding(only encoding),Fractional Knapsack,BFS,DFS,Adjacency Matrix,Adjacency List,Dijkstra,Floyd Warshal,Numner theory,GCD,Prime factorization,Graham scan Algorithm,Modular arithmetic"
+    }
+  ],
+  "2025-12-11": [
+    {
+      "title": "ডিবিএমএস ল্যাব প্রজেক্ট রিপোর্ট সফটকপি সাবমিশন অনলাইন",
+      "description": "Project assigned in Classroom"
+    }
   ]
 }
