@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://page-host.github.io/4AM-EVENTS/sitemap.xml
