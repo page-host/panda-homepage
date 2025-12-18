@@ -12,18 +12,22 @@
     <meta name="author" content="4AM Team">
     <meta name="robots" content="index, follow">
 
+    <!-- SEO Links -->
+    <link rel="canonical" href="https://page-host.github.io/4AM-EVENTS/" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/4AM-EVENTS/sitemap.xml" />
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://4am-events.vercel.app/"> <!-- Replace with your actual URL -->
+    <meta property="og:url" content="https://page-host.github.io/4AM-EVENTS/">
     <meta property="og:title" content="4AM Events - Interactive Academic & Community Calendar Planner">
     <meta property="og:description" content="Manage your academic life seamlessly. Track every assignment and exam with our intuitive calendar interface.">
-    <meta property="og:image" content="assets/cal.png">
+    <meta property="og:image" content="https://page-host.github.io/4AM-EVENTS/assets/cal.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:title" content="4AM Events - Interactive Academic & Community Calendar Planner">
     <meta property="twitter:description" content="Manage your academic life seamlessly. Track every assignment and exam with our intuitive calendar interface.">
-    <meta property="twitter:image" content="assets/cal.png">
+    <meta property="twitter:image" content="https://page-host.github.io/4AM-EVENTS/assets/cal.png">
 
     <!-- JSON-LD Structured Data for Google -->
     <script type="application/ld+json">
@@ -39,13 +43,14 @@
         "priceCurrency": "USD"
       },
       "description": "A responsive event calendar application tracking academic and community events for students.",
+      "url": "https://page-host.github.io/4AM-EVENTS/",
       "featureList": "Event tracking, Academic scheduling, Mobile responsive, Dark mode support, Real-time updates"
     }
     </script>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-     <!--  Logo -->
+     <!-- Logo -->
     <link rel="icon" href="assets/cal.png">
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -95,8 +100,16 @@
       /* Mobile tap highlight fix */
       * { -webkit-tap-highlight-color: transparent; }
       
-      /* Smooth transitions for grid cells */
-      .cell-transition { transition: transform 0.1s ease-in-out, background-color 0.1s; }
+      /* Ensure calendar cells are uniform and responsive */
+      .calendar-grid-cell {
+        aspect-ratio: 1 / 1.1;
+        min-height: 0;
+      }
+      @media (max-width: 640px) {
+        .calendar-grid-cell {
+          aspect-ratio: 1 / 1.3;
+        }
+      }
 
       /* Custom Today Gradient */
       .bg-gradient-today {
@@ -115,7 +128,7 @@
   <body class="antialiased">
     <header class="sr-only">
       <h1>4AM Events Academic Planner</h1>
-      <p>Organize your university life, track assignments, and never miss a class with our digital schedule.</p>
+      <p>Organize your university life, track assignments, and never miss a class with our digital schedule hosted on GitHub.</p>
     </header>
 
     <main id="root" class="min-h-screen p-2 md:p-8 font-sans max-w-7xl mx-auto selection:bg-brand-pink selection:text-white">
@@ -127,7 +140,7 @@
     </main>
 
     <footer class="sr-only">
-      <p>&copy; 2025 4AM Events. Built for academic excellence.</p>
+      <p>&copy; 2025 4AM Events. Built for academic excellence. Hosted on GitHub Pages.</p>
     </footer>
 
     <!-- Application Logic -->
@@ -361,7 +374,7 @@
         const todayStr = formatDateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
         
         let html = '';
-        const emptyCell = `<div class="bg-gray-50/50 dark:bg-gray-900/30 min-h-[6rem] sm:min-h-[8rem] border-r border-b border-gray-100 dark:border-gray-700"></div>`;
+        const emptyCell = `<div class="bg-gray-50/50 dark:bg-gray-900/30 calendar-grid-cell border-r border-b border-gray-100 dark:border-gray-700"></div>`;
         for(let i=0; i<startDay; i++) html += emptyCell;
         
         for(let day=1; day<=daysInMonth; day++) {
@@ -392,12 +405,12 @@
           }).join('');
 
           html += `
-            <div onclick="actions.selectDate('${dateKey}')" class="group relative min-h-[6rem] sm:min-h-[8rem] border-r border-b border-gray-100 dark:border-gray-700 p-1 sm:p-2 cursor-pointer bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-200" role="button" aria-label="View events for ${dateKey}">
-              <div class="flex justify-between items-start mb-1">
+            <div onclick="actions.selectDate('${dateKey}')" class="group relative calendar-grid-cell border-r border-b border-gray-100 dark:border-gray-700 p-1 sm:p-2 cursor-pointer bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-200 flex flex-col overflow-hidden" role="button" aria-label="View events for ${dateKey}">
+              <div class="flex justify-between items-start mb-1 shrink-0">
                 <span class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-xs sm:text-sm font-bold ${numClass}">${digitDisplay}</span>
                 ${dayEvents.length > 0 ? '<span class="sm:hidden flex h-1.5 w-1.5 rounded-full bg-brand-pink mb-auto mt-1 mr-1 shadow-sm"></span>' : ''}
               </div>
-              <div class="overflow-hidden">${eventsHtml}</div>
+              <div class="flex-1 overflow-hidden min-h-0">${eventsHtml}</div>
             </div>
           `;
         }
