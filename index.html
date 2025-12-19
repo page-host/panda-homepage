@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -156,7 +157,7 @@
       const REPO_NAME = "page-host/4AM-EVENTS";
       const FILE_PATH = "events.json";
 
-      // --- Default Data (Initial Placeholder) ---
+      // --- Default Data ---
       const INITIAL_EVENTS = {
         "2025-12-02": [{ "title": "একাউন্টিং সিটি", "description": "সিটি টপিক : Worksheet, Cost of goods statement" }],
         "2025-12-01": [{ "title": "বাংলা এসাইনমেন্ট সাবমিট", "description": "এসাইনমেন্ট টপিক : তোমার জীবনের ক্ষুদে গল্প" }],
@@ -177,7 +178,7 @@
       const state = {
         currentDate: new Date(),
         selectedDateKey: null,
-        events: INITIAL_EVENTS, 
+        events: INITIAL_EVENTS, // Fallback to initial events so data shows immediately
         adminToken: localStorage.getItem('4am_admin_token'),
         isSaving: false,
         isAdminModalOpen: false,
@@ -194,6 +195,15 @@
         reminderUnit: localStorage.getItem('4am_reminder_unit') || 'days',
         notifiedEvents: JSON.parse(localStorage.getItem('4am_notified_events') || '{}')
       };
+
+      // Set initial month to December 2025 if current month is empty (optional helper)
+      if (Object.keys(state.events).length > 0) {
+          const firstEventDate = new Date(Object.keys(state.events)[0]);
+          // If viewing an empty month and we have future data, jump there
+          if (state.currentDate.getFullYear() < 2025) {
+              state.currentDate = new Date(2025, 11, 1);
+          }
+      }
 
       // Update document class immediately
       if (state.isDarkMode) {
@@ -272,22 +282,11 @@
           const res = await fetch(`${FILE_PATH}?t=${Date.now()}`);
           if (res.ok) {
             const fetched = await res.json();
-            // OVERWRITE initial events with fetched GitHub data as requested
-            state.events = fetched;
-            
-            // Dynamic navigation: if currently showing a month with zero events, 
-            // jump to the month of the earliest event found in the fetched data.
-            const currentMonthPrefix = formatDateKey(state.currentDate.getFullYear(), state.currentDate.getMonth(), 1).substring(0, 7);
-            const currentEventsCount = Object.keys(state.events).filter(k => k.startsWith(currentMonthPrefix)).length;
-
-            if (currentEventsCount === 0 && Object.keys(state.events).length > 0) {
-              const sortedDates = Object.keys(state.events).sort();
-              const firstEventDate = new Date(sortedDates[0]);
-              state.currentDate = new Date(firstEventDate.getFullYear(), firstEventDate.getMonth(), 1);
-            }
+            // Merge or overwrite state events
+            state.events = { ...state.events, ...fetched };
           }
         } catch (e) {
-          console.warn("Could not fetch remote events.json, falling back to dummy data.");
+          console.warn("Could not fetch remote events.json, using local state.");
         } finally {
           render();
           checkUpcomingEvents();
