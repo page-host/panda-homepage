@@ -133,7 +133,7 @@
           if (res.ok) state.events = await res.json();
           else state.events = {};
         } catch (e) {
-          console.warn("Using default state");
+          console.warn("Using local state");
         } finally {
           render();
           const urlParams = new URLSearchParams(window.location.search);
@@ -143,28 +143,38 @@
       }
 
       function startReminderCheck() {
+        // Run initial check
         checkUpcomingReminders();
-        setInterval(checkUpcomingReminders, 1800000); // Check every 30 mins
+        // Check more frequently while active to catch upcoming events
+        setInterval(checkUpcomingReminders, 600000); // Check every 10 mins
       }
 
       function checkUpcomingReminders() {
-        if (Notification.permission !== 'granted') return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
         
         const now = new Date();
         const notifiedEvents = JSON.parse(localStorage.getItem('4am_notified_events') || '{}');
-        const bufferMs = state.reminderUnit === 'days' 
-          ? state.reminderValue * 24 * 60 * 60 * 1000 
-          : state.reminderValue * 60 * 60 * 1000;
+        const reminderVal = state.reminderValue;
+        const reminderUnit = state.reminderUnit;
+        
+        // Calculate the target window
+        const bufferMs = reminderUnit === 'days' 
+          ? reminderVal * 24 * 60 * 60 * 1000 
+          : reminderVal * 60 * 60 * 1000;
 
         Object.keys(state.events).forEach(dateKey => {
-          const eventDate = new Date(dateKey);
-          const diff = eventDate.getTime() - now.getTime();
+          // Robust local timezone parsing: YYYY-MM-DD to midnight local
+          const [y, m, d] = dateKey.split('-').map(Number);
+          const eventDate = new Date(y, m - 1, d);
           
-          if (diff > 0 && diff <= bufferMs) {
+          const diff = eventDate.getTime() - now.getTime();
+          const isToday = now.getFullYear() === y && now.getMonth() === (m-1) && now.getDate() === d;
+          
+          if (isToday || (diff > 0 && diff <= bufferMs)) {
             state.events[dateKey].forEach((evt, idx) => {
-              const notificationKey = `${dateKey}_${idx}`;
+              const notificationKey = `${dateKey}_${idx}_${evt.title}`;
               if (!notifiedEvents[notificationKey]) {
-                showBrowserNotification(evt.title, dateKey);
+                showBrowserNotification(evt.title, dateKey, isToday ? 'TODAY' : 'UPCOMING');
                 notifiedEvents[notificationKey] = true;
               }
             });
@@ -173,18 +183,30 @@
         localStorage.setItem('4am_notified_events', JSON.stringify(notifiedEvents));
       }
 
-      function showBrowserNotification(title, dateKey) {
-        if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification('4AM Event Reminder', {
-            body: `Upcoming: ${title} on ${dateKey}`,
-            icon: 'assets/cal.png',
-            badge: 'assets/cal.png',
-            data: { url: APP_URL, dateKey: dateKey },
-            tag: `event-${dateKey}`,
-            vibrate: [200, 100, 200]
+      function showBrowserNotification(title, bodyText, type = 'REMINDER') {
+        if (!('Notification' in window)) return;
+        
+        const options = {
+          body: type === 'STATUS' ? bodyText : (type === 'TODAY' ? `Today: ${title}` : `Upcoming: ${title} on ${bodyText}`),
+          icon: 'assets/cal.png',
+          badge: 'assets/cal.png',
+          data: { url: APP_URL, dateKey: type === 'STATUS' ? '' : bodyText },
+          tag: type === 'STATUS' ? 'status' : `event-${bodyText}-${title}`,
+          vibrate: [200, 100, 200],
+          requireInteraction: type !== 'STATUS' 
+        };
+
+        const notificationTitle = type === 'STATUS' ? title : '4AM Event Planner';
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(notificationTitle, options);
+          }).catch(() => {
+            new Notification(notificationTitle, options);
           });
-        });
+        } else {
+          new Notification(notificationTitle, options);
+        }
       }
 
       const actions = {
@@ -252,21 +274,53 @@
             }
           });
         },
-        setReminderValue: (val) => { state.reminderValue = parseInt(val); localStorage.setItem('4am_reminder_val', val); },
-        setReminderUnit: (val) => { state.reminderUnit = val; localStorage.setItem('4am_reminder_unit', val); },
+        setReminderValue: (val) => { 
+          const v = parseInt(val) || 1;
+          state.reminderValue = v; 
+          localStorage.setItem('4am_reminder_val', v); 
+        },
+        setReminderUnit: (val) => { 
+          state.reminderUnit = val; 
+          localStorage.setItem('4am_reminder_unit', val); 
+        },
         openReminderModal: () => { state.isReminderModalOpen = true; render(); },
         closeReminderModal: () => { state.isReminderModalOpen = false; render(); },
         confirmReminder: async () => {
-          if ('Notification' in window) {
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-              localStorage.setItem('4am_reminder_setup', 'true');
-              startReminderCheck();
-              showBrowserNotification('Reminders Enabled!', 'Successfully setup');
-            }
+          if (!('Notification' in window)) {
+            alert("This browser does not support desktop notifications.");
+            return;
           }
-          state.isReminderModalOpen = false;
+
+          // Handle both promise and callback styles for cross-browser compatibility
+          const requestPermission = () => {
+            return new Promise((resolve) => {
+              const result = Notification.requestPermission((status) => {
+                resolve(status);
+              });
+              if (result && result.then) {
+                result.then(resolve);
+              }
+            });
+          };
+
+          const permission = await requestPermission();
+          
+          if (permission === 'granted') {
+            localStorage.setItem('4am_reminder_setup', 'true');
+            startReminderCheck();
+            showBrowserNotification('Reminders Active', 'You will now receive alerts for your academic events.', 'STATUS');
+            state.isReminderModalOpen = false;
+          } else if (permission === 'denied') {
+            alert("Notification permission was denied. Please update your browser settings to receive alerts.");
+          }
           render();
+        },
+        sendTest: () => {
+          if (Notification.permission === 'granted') {
+            showBrowserNotification('Test Alert', 'This is a test notification from 4AM Events.', 'STATUS');
+          } else {
+            alert("Please enable alerts first.");
+          }
         }
       };
 
@@ -347,7 +401,13 @@
 
       function renderSidebar() {
         const upcoming = Object.keys(state.events).sort()
-          .filter(d => new Date(d) >= new Date().setHours(0,0,0,0))
+          .filter(d => {
+             const [y, m, day] = d.split('-').map(Number);
+             const eventDate = new Date(y, m-1, day);
+             const today = new Date();
+             today.setHours(0,0,0,0);
+             return eventDate >= today;
+          })
           .slice(0, 10)
           .map(date => {
             const evts = state.events[date];
@@ -386,7 +446,10 @@
                    <option value="hours" ${state.reminderUnit === 'hours' ? 'selected' : ''}>Hours</option>
                  </select>
                </div>
-               <button onclick="actions.confirmReminder()" class="w-full py-3 bg-brand-purple text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">Enable Now</button>
+               <div class="flex flex-col gap-2">
+                 <button onclick="actions.confirmReminder()" class="w-full py-3 bg-brand-purple text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">Enable Now</button>
+                 <button onclick="actions.sendTest()" class="text-xs font-bold text-brand-purple hover:underline py-2">Test Notification</button>
+               </div>
             </div>
           </div>
         `;
