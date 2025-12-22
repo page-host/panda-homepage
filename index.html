@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <meta name="theme-color" content="#FF136F" />
+    <link rel="manifest" href="manifest.json" />
+    
+    <!-- Primary Meta Tags -->
+    <title>4AM Events - Academic & Community Calendar</title>
+    <meta name="title" content="4AM Events - Interactive Academic & Community Calendar Planner">
+    <meta name="description" content="Stay organized with 4AM Events. High-performance, responsive academic calendar for tracking exams, assignments, and classes.">
+    <link rel="icon" href="assets/cal.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Poppins', 'sans-serif'] },
+            colors: {
+              brand: {
+                pink: '#FF136F',
+                orange: '#FF9C35',
+                purple: '#3F07F8',
+                light: '#FEEAE9',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body { transition: background-color 0.3s ease; min-height: 100vh; overflow-x: hidden; }
+      body:not(.dark) { background: linear-gradient(135deg, #EEF2FF 0%, #F3E8FF 50%, #FFF1F2 100%); }
+      body.dark { background: linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e1b4b 100%); }
+      
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; }
+      
+      * { -webkit-tap-highlight-color: transparent; outline: none; }
+
+      /* PERFECT EQUAL GRID BOXES */
+      .calendar-grid-cell {
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-right-width: 1px;
+        border-bottom-width: 1px;
+      }
+
+      .bg-gradient-today { background: linear-gradient(135deg, #ff00cc, #333399); }
+      .modal-anim { animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+      @keyframes modalScale { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+  </head>
+  <body class="antialiased font-sans">
+    <main id="root" class="min-h-screen p-2 md:p-8 max-w-7xl mx-auto selection:bg-brand-pink selection:text-white">
+      <div class="flex flex-col items-center justify-center min-h-[50vh] text-brand-purple">
+        <i data-lucide="loader-2" class="w-10 h-10 animate-spin mb-4"></i>
+        <p class="animate-pulse font-medium text-lg">Initializing System...</p>
+      </div>
+    </main>
+
+    <script>
+      const APP_URL = window.location.href.split('?')[0].split('#')[0].replace(/\/$/, "");
+      const FILE_PATH = "events.json";
+
+      const state = {
+        currentDate: new Date(2025, 11, 1),
+        selectedDateKey: null,
+        events: {},
+        adminToken: localStorage.getItem('4am_admin_token'),
+        isDarkMode: localStorage.getItem('4am_dark_mode') === 'true',
+        isReminderModalOpen: !localStorage.getItem('4am_reminder_setup'), 
+        reminderValue: parseInt(localStorage.getItem('4am_reminder_val')) || 1,
+        reminderUnit: localStorage.getItem('4am_reminder_unit') || 'days' 
+      };
+
+      if (state.isDarkMode) document.documentElement.classList.add('dark');
+
+      const formatDateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+      const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+      const getMonthName = (monthIndex) => new Date(0, monthIndex).toLocaleString('default', { month: 'long' });
+
+      // Service Worker Registration for Mobile Background Notifications
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => console.log('Service Worker Live:', reg.scope))
+            .catch(err => console.error('SW Error:', err));
+        });
+        
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'OPEN_DATE') {
+            actions.navigateToDate(event.data.dateKey);
+          }
+        });
+      }
+
+      async function fetchEvents() {
+        try {
+          const res = await fetch(`${FILE_PATH}?t=${Date.now()}`);
+          if (res.ok) state.events = await res.json();
+        } catch (e) {
+          console.warn("Offline or Local mode enabled.");
+        } finally {
+          render();
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.has('openDate')) actions.navigateToDate(urlParams.get('openDate'));
+          if (localStorage.getItem('4am_reminder_setup')) startReminderCheck();
+        }
+      }
+
+      function startReminderCheck() {
+        checkUpcomingReminders();
+        // Check every 2 minutes while active
+        setInterval(checkUpcomingReminders, 120000); 
+      }
+
+      function checkUpcomingReminders() {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        
+        const now = new Date();
+        const notifiedEvents = JSON.parse(localStorage.getItem('4am_notified_events') || '{}');
+        const bufferMs = state.reminderUnit === 'days' 
+          ? state.reminderValue * 24 * 60 * 60 * 1000 
+          : state.reminderValue * 60 * 60 * 1000;
+
+        Object.keys(state.events).forEach(dateKey => {
+          const [y, m, d] = dateKey.split('-').map(Number);
+          const eventDate = new Date(y, m - 1, d);
+          const diff = eventDate.getTime() - now.getTime();
+          const isToday = now.getFullYear() === y && now.getMonth() === (m-1) && now.getDate() === d;
+          
+          if (isToday || (diff > 0 && diff <= bufferMs)) {
+            state.events[dateKey].forEach((evt, idx) => {
+              const notificationKey = `v1_${dateKey}_${idx}_${evt.title}`;
+              if (!notifiedEvents[notificationKey]) {
+                triggerNativeNotification(evt.title, dateKey, isToday ? 'TODAY' : 'UPCOMING');
+                notifiedEvents[notificationKey] = true;
+              }
+            });
+          }
+        });
+        localStorage.setItem('4am_notified_events', JSON.stringify(notifiedEvents));
+      }
+
+      function triggerNativeNotification(title, bodyText, type = 'REMINDER') {
+        const options = {
+          body: type === 'STATUS' ? bodyText : (type === 'TODAY' ? `Scheduled for today: ${title}` : `${title} is coming up on ${bodyText}`),
+          icon: 'assets/cal.png',
+          badge: 'assets/cal.png',
+          data: { url: APP_URL, dateKey: type === 'STATUS' ? '' : bodyText },
+          tag: `4am-${Date.now()}`,
+          vibrate: [200, 100, 200],
+          requireInteraction: true 
+        };
+
+        const displayTitle = type === 'STATUS' ? title : '4AM Event Alert';
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(displayTitle, options);
+          }).catch(() => {
+            new Notification(displayTitle, options);
+          });
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(displayTitle, options);
+        }
+      }
+
+      const actions = {
+        toggleDarkMode: () => {
+          state.isDarkMode = !state.isDarkMode;
+          localStorage.setItem('4am_dark_mode', state.isDarkMode);
+          document.documentElement.classList.toggle('dark');
+          render();
+        },
+        prevMonth: () => { state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() - 1, 1); render(); },
+        nextMonth: () => { state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + 1, 1); render(); },
+        today: () => { state.currentDate = new Date(); render(); },
+        navigateToDate: (dateKey) => {
+          const d = new Date(dateKey);
+          if (isNaN(d.getTime())) return;
+          state.currentDate = new Date(d.getFullYear(), d.getMonth(), 1);
+          state.selectedDateKey = dateKey;
+          render();
+        },
+        selectDate: (dateKey) => { 
+          state.selectedDateKey = dateKey; 
+          try { window.history.pushState({ dateKey }, '', APP_URL + "?openDate=" + dateKey); } catch (e) {}
+          render(); 
+        },
+        closeModal: () => { 
+          state.selectedDateKey = null; 
+          try { window.history.pushState({}, '', APP_URL); } catch (e) {}
+          render(); 
+        },
+        openAdminModal: () => { state.isAdminModalOpen = true; render(); },
+        closeAdminModal: () => { state.isAdminModalOpen = false; render(); },
+        login: (token) => {
+          state.adminToken = token;
+          localStorage.setItem('4am_admin_token', token);
+          state.isAdminModalOpen = false;
+          render();
+        },
+        logout: () => { state.adminToken = null; localStorage.removeItem('4am_admin_token'); render(); },
+        setReminderValue: (val) => { 
+          const v = parseInt(val) || 1;
+          state.reminderValue = v; 
+          localStorage.setItem('4am_reminder_val', v); 
+        },
+        setReminderUnit: (val) => { 
+          state.reminderUnit = val; 
+          localStorage.setItem('4am_reminder_unit', val); 
+        },
+        openReminderModal: () => { state.isReminderModalOpen = true; render(); },
+        closeReminderModal: () => { state.isReminderModalOpen = false; render(); },
+        confirmReminder: async () => {
+          if (!('Notification' in window)) {
+            alert("This browser doesn't support notifications.");
+            return;
+          }
+
+          // User gesture is required here for mobile browsers
+          const permission = await Notification.requestPermission();
+          
+          if (permission === 'granted') {
+            localStorage.setItem('4am_reminder_setup', 'true');
+            startReminderCheck();
+            triggerNativeNotification('Alerts Enabled', 'You will receive notifications for all upcoming events.', 'STATUS');
+            state.isReminderModalOpen = false;
+          } else {
+            alert("Please enable notification permissions in your phone's settings to receive alerts.");
+          }
+          render();
+        },
+        sendTest: () => {
+          if (Notification.permission === 'granted') {
+            triggerNativeNotification('System Test', 'Your mobile alerts are working perfectly!', 'STATUS');
+          } else {
+            alert("Notifications are not enabled yet.");
+          }
+        },
+        shareEvent: (dateKey) => {
+          const shareUrl = `${APP_URL}?openDate=${dateKey}`;
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            const btn = document.getElementById('share-btn-text');
+            if (btn) {
+              const original = btn.innerText;
+              btn.innerText = "Copied!";
+              setTimeout(() => { if (btn) btn.innerText = original; }, 2000);
+            }
+          });
+        }
+      };
+
+      function Icon(name, size=20, extraClass='') {
+        return `<i data-lucide="${name}" width="${size}" height="${size}" class="${extraClass}"></i>`;
+      }
+
+      function renderHeader() {
+        const year = state.currentDate.getFullYear();
+        const monthName = getMonthName(state.currentDate.getMonth());
+        return `
+          <header class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-lg border border-white dark:border-gray-700 gap-4 w-full">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+              <div class="w-12 h-12 shrink-0 bg-gradient-to-br from-brand-pink to-brand-orange rounded-2xl flex items-center justify-center shadow-lg text-white">${Icon('calendar', 24)}</div>
+              <div>
+                <h1 class="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-gray-100 leading-none">4AM Events</h1>
+                <p class="text-[9px] text-brand-purple dark:text-brand-pink font-bold uppercase tracking-widest mt-1">Mobile Optimized</p>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <div class="flex items-center bg-gray-50 dark:bg-gray-700/50 p-1 rounded-xl w-full sm:w-auto justify-between border border-gray-100 dark:border-gray-600">
+                <button onclick="actions.prevMonth()" class="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400">${Icon('chevron-left', 20)}</button>
+                <div class="px-4 text-center font-bold text-gray-800 dark:text-gray-200 text-sm sm:text-base">${monthName} <span class="text-brand-purple dark:text-brand-orange">${year}</span></div>
+                <button onclick="actions.nextMonth()" class="p-2 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400">${Icon('chevron-right', 20)}</button>
+              </div>
+              <div class="flex gap-2 w-full sm:w-auto">
+                <button onclick="actions.toggleDarkMode()" class="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 rounded-xl hover:shadow-sm">${Icon(state.isDarkMode ? 'sun' : 'moon', 20)}</button>
+                <button onclick="actions.openReminderModal()" class="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-brand-purple dark:text-brand-orange rounded-xl hover:shadow-sm">${Icon('bell', 20)}</button>
+                <button onclick="actions.today()" class="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 text-sm font-bold rounded-xl flex-1 sm:flex-none">Today</button>
+                <button onclick="actions.openAdminModal()" class="px-4 py-2 bg-gray-900 dark:bg-brand-pink text-white text-sm font-bold rounded-xl shadow-lg">${Icon('lock', 18)}</button>
+              </div>
+            </div>
+          </header>
+        `;
+      }
+
+      function renderCalendar() {
+        const year = state.currentDate.getFullYear();
+        const month = state.currentDate.getMonth();
+        const daysInMonth = getDaysInMonth(year, month);
+        const startDay = getFirstDayOfMonth(year, month);
+        const todayStr = formatDateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+        
+        let html = '';
+        const emptyCell = `<div class="calendar-grid-cell bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-700"></div>`;
+        for(let i=0; i<startDay; i++) html += emptyCell;
+        
+        for(let day=1; day<=daysInMonth; day++) {
+          const dateKey = formatDateKey(year, month, day);
+          const dayEvents = state.events[dateKey] || [];
+          const isToday = dateKey === todayStr;
+          const numClass = isToday ? 'bg-gradient-today text-white shadow-lg scale-110 z-10' : 'text-gray-700 dark:text-gray-300';
+          
+          const dotsHtml = dayEvents.length > 0 ? `<div class="mt-auto pb-1 flex justify-center gap-0.5">${dayEvents.map(() => `<span class="h-1 w-1 rounded-full bg-brand-pink"></span>`).join('')}</div>` : '';
+          
+          html += `
+            <div onclick="actions.selectDate('${dateKey}')" class="calendar-grid-cell relative p-1 cursor-pointer bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors" role="button">
+              <div class="flex justify-between items-start">
+                <span class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full text-xs font-bold ${numClass}">${day}</span>
+              </div>
+              <div class="hidden sm:block overflow-hidden mt-1">
+                ${dayEvents.slice(0, 2).map((evt, idx) => `<div class="text-[8px] truncate px-1 py-0.5 rounded mb-0.5 font-bold ${idx % 2 === 0 ? 'bg-brand-pink/10 text-brand-pink' : 'bg-brand-purple/10 text-brand-purple'}">${evt.title}</div>`).join('')}
+              </div>
+              ${dotsHtml}
+            </div>
+          `;
+        }
+        
+        const padding = (startDay + daysInMonth) % 7 === 0 ? 0 : 7 - ((startDay + daysInMonth) % 7);
+        for(let i=0; i<padding; i++) html += emptyCell;
+        
+        return `
+          <div class="lg:col-span-3">
+            <section class="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-white dark:border-gray-700 overflow-hidden">
+              <div class="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="py-3 text-center text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">${d}</div>`).join('')}
+              </div>
+              <div class="grid grid-cols-7 bg-gray-100 dark:bg-gray-900">${html}</div>
+            </section>
+          </div>
+        `;
+      }
+
+      function renderSidebar() {
+        const upcoming = Object.keys(state.events).sort()
+          .filter(d => {
+             const [y, m, day] = d.split('-').map(Number);
+             const evDate = new Date(y, m-1, day);
+             const today = new Date();
+             today.setHours(0,0,0,0);
+             return evDate >= today;
+          })
+          .slice(0, 8)
+          .map(date => {
+            const evts = state.events[date];
+            const dateStr = new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+            return `<div onclick="actions.selectDate('${date}')" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 p-3 rounded-xl transition-colors border-b dark:border-gray-700/50 last:border-0">
+              <div class="text-[10px] font-bold text-brand-purple dark:text-brand-orange mb-1 uppercase tracking-wider">${dateStr}</div>
+              ${evts.map(e => `<div class="text-sm font-bold text-gray-800 dark:text-gray-100 line-clamp-1">${e.title}</div>`).join('')}
+            </div>`;
+          }).join('');
+        return `
+          <aside class="lg:col-span-1">
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-white dark:border-gray-700 p-6 h-full">
+              <div class="flex items-center gap-3 mb-4 border-b pb-4 dark:border-gray-700">
+                <div class="p-2 bg-orange-50 dark:bg-orange-900/30 text-brand-orange rounded-xl">${Icon('clock', 18)}</div>
+                <h2 class="text-lg font-extrabold text-gray-800 dark:text-gray-200">Timeline</h2>
+              </div>
+              <div class="space-y-1">${upcoming || '<p class="text-xs text-gray-400 text-center py-4">No events found.</p>'}</div>
+            </div>
+          </aside>
+        `;
+      }
+
+      function renderReminderModal() {
+        if (!state.isReminderModalOpen) return '';
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        return `
+          <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center modal-anim relative">
+               <button onclick="actions.closeReminderModal()" class="absolute top-3 right-3 p-2 text-gray-400 hover:bg-gray-100 rounded-full">${Icon('x', 20)}</button>
+               <div class="w-16 h-16 bg-brand-pink/10 text-brand-pink rounded-full flex items-center justify-center mx-auto mb-4">${Icon('bell-ring', 32)}</div>
+               <h3 class="text-xl font-extrabold text-gray-900 dark:text-white mb-2">Enable Mobile Alerts</h3>
+               <p class="text-gray-500 text-xs mb-4">Never miss an assignment or exam again.</p>
+               
+               ${isIOS ? `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-[10px] text-blue-600 dark:text-blue-300 mb-4 font-bold uppercase">Note: On iPhone, you must "Add to Home Screen" to use alerts.</div>` : ''}
+
+               <div class="flex items-center gap-2 mb-6 justify-center">
+                 <input type="number" min="1" value="${state.reminderValue}" oninput="actions.setReminderValue(this.value)" class="w-16 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-center font-bold text-gray-900 dark:text-white outline-none ring-1 ring-gray-200 focus:ring-brand-purple">
+                 <select onchange="actions.setReminderUnit(this.value)" class="px-2 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white outline-none ring-1 ring-gray-200">
+                   <option value="days" ${state.reminderUnit === 'days' ? 'selected' : ''}>Days</option>
+                   <option value="hours" ${state.reminderUnit === 'hours' ? 'selected' : ''}>Hours</option>
+                 </select>
+               </div>
+               <div class="flex flex-col gap-2">
+                 <button onclick="actions.confirmReminder()" class="w-full py-4 bg-brand-purple text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">Grant Permission</button>
+                 <button onclick="actions.sendTest()" class="text-[10px] font-bold text-brand-purple dark:text-brand-orange hover:underline py-2">Test Notification Channel</button>
+               </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderDateModal() {
+        if (!state.selectedDateKey) return '';
+        const dayEvents = state.events[state.selectedDateKey] || [];
+        const dateStr = new Date(state.selectedDateKey).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        return `
+          <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] modal-anim">
+              <div class="bg-gradient-to-r from-brand-pink to-brand-orange p-5 flex justify-between items-center text-white shrink-0">
+                <div><h3 class="text-lg font-extrabold">Schedule</h3><p class="text-[10px] opacity-90">${dateStr}</p></div>
+                <div class="flex items-center gap-2">
+                  ${dayEvents.length > 0 ? `<button onclick="actions.shareEvent('${state.selectedDateKey}')" class="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-bold">${Icon('share-2', 16)} <span id="share-btn-text">Share</span></button>` : ''}
+                  <button onclick="actions.closeModal()" class="p-2 hover:bg-white/20 rounded-full">${Icon('x', 24)}</button>
+                </div>
+              </div>
+              <div class="p-6 overflow-y-auto flex-1 bg-gray-50 dark:bg-gray-900/50">
+                ${dayEvents.length === 0 ? `<div class="text-center py-10 text-gray-400 font-medium">No academic tasks today.</div>` : `<div class="space-y-4">${dayEvents.map(evt => `<article class="bg-white dark:bg-gray-800 border-l-4 border-brand-purple p-4 rounded-r-xl shadow-sm border dark:border-gray-700"><h4 class="font-bold text-gray-900 dark:text-white mb-1">${evt.title}</h4><p class="text-gray-600 dark:text-gray-300 text-xs whitespace-pre-wrap">${evt.description}</p></article>`).join('')}</div>`}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function renderAdminModal() {
+        if (!state.isAdminModalOpen) return '';
+        return `
+          <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 modal-anim">
+              <h3 class="text-lg font-bold flex items-center gap-2 text-brand-orange mb-4">${Icon('lock', 20)} Editor Portal</h3>
+              <input id="admin-token" type="password" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl mb-4 border dark:border-gray-600" placeholder="Auth Key">
+              <div class="flex justify-end gap-3"><button onclick="actions.closeAdminModal()" class="text-gray-500 font-bold">Cancel</button><button onclick="actions.login(document.getElementById('admin-token').value)" class="px-6 py-2 bg-brand-purple text-white font-bold rounded-lg shadow-lg">Login</button></div>
+            </div>
+          </div>`;
+      }
+
+      function render() {
+        const root = document.getElementById('root');
+        root.innerHTML = `${renderHeader()}<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">${renderCalendar()}${renderSidebar()}</div>${renderDateModal()}${renderAdminModal()}${renderReminderModal()}`;
+        lucide.createIcons();
+      }
+
+      fetchEvents();
+    </script>
+  </body>
+</html>
